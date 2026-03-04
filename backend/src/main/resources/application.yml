@@ -9,7 +9,12 @@ spring:
 
   sql:
     init:
-      mode: never
+      mode: always
+      platform: postgresql
+
+smartcampus:
+  auth:
+    initial-admin-email: ${INITIAL_ADMIN_EMAIL:admin@example.com}
 
 server:
   port: 8080
