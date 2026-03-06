@@ -26,7 +26,7 @@ public class AdminProvisioner {
                 log.info("Provisioning initial SUPER_ADMIN user: {}", initialAdminEmail);
                 User admin = new User(
                     null,
-                    "INITIAL_ADMIN_PLACEHOLDER", // Will be updated on first Google login
+                    "INITIAL_ADMIN_" + initialAdminEmail, // Unique placeholder per email
                     initialAdminEmail,
                     "System Administrator",
                     null, null, null, null,
