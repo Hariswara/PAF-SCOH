@@ -1,2 +1,0 @@
--- Smart Campus Operations Hub — DDL
--- Tables will be added here as modules are implemented.
