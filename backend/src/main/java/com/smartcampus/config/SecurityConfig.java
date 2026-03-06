@@ -39,6 +39,7 @@ public class SecurityConfig {
             )
             .logout(logout -> logout
                 .logoutUrl("/api/auth/logout")
+                .logoutRequestMatcher(new org.springframework.security.web.util.matcher.AntPathRequestMatcher("/api/auth/logout")) // Defaults to any method if not specified
                 .logoutSuccessUrl("http://localhost:5173/login")
                 .deleteCookies("JSESSIONID")
                 .invalidateHttpSession(true)
