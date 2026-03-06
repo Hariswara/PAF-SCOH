@@ -10,6 +10,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -33,5 +37,15 @@ public class AuthController {
                         "user", user
                 ))
                 .orElse(Map.of("authenticated", false));
+    }
+
+    @PostMapping("/register/student")
+    public Map<String, String> registerStudent() {
+        return Map.of("message", "Student registration stub");
+    }
+
+    @PostMapping("/register/non-student")
+    public Map<String, String> registerNonStudent() {
+        return Map.of("message", "Non-student registration stub");
     }
 }

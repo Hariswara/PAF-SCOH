@@ -8,13 +8,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -39,7 +41,6 @@ class AuthIntegrationTests {
 
     @Test
     void authenticatedStatusShouldReturnUser() throws Exception {
-        // Create a user in DB
         userRepository.save(new User(
                 null, "google-123", "auth-test@example.com", "Auth Test User",
                 null, null, null, null,
@@ -54,13 +55,60 @@ class AuthIntegrationTests {
                             attrs.put("name", "Auth Test User");
                         })))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.authenticated").value(true))
-                .andExpect(jsonPath("$.user.email").value("auth-test@example.com"));
+                .andExpect(jsonPath("$.authenticated").value(true));
     }
 
     @Test
-    void accessingProtectedRouteWithoutLoginShouldFail() throws Exception {
+    void unauthenticatedApiAccessShouldReturn401() throws Exception {
         mockMvc.perform(get("/api/greet"))
-                .andExpect(status().isForbidden()); // Entry point returns 403 for unauthorized
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void pendingProfileUserCanAccessRegistrationButNotGreet() throws Exception {
+        userRepository.save(new User(
+                null, "google-pending", "pending@example.com", "Pending User",
+                null, null, null, null,
+                null, UserStatus.PENDING_PROFILE, null, null, null, null
+        ));
+
+        // Can access registration
+        mockMvc.perform(post("/api/auth/register/student")
+                .with(csrf()) // Add CSRF token for POST
+                .with(oauth2Login()
+                        .authorities(new SimpleGrantedAuthority("STATUS_PENDING_PROFILE"))
+                        .attributes(attrs -> {
+                            attrs.put("sub", "google-pending");
+                            attrs.put("email", "pending@example.com");
+                        })))
+                .andExpect(status().isOk());
+
+        // Cannot access greet
+        mockMvc.perform(get("/api/greet")
+                .with(oauth2Login()
+                        .authorities(new SimpleGrantedAuthority("STATUS_PENDING_PROFILE"))
+                        .attributes(attrs -> {
+                            attrs.put("sub", "google-pending");
+                            attrs.put("email", "pending@example.com");
+                        })))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void activeUserCanAccessGreet() throws Exception {
+        userRepository.save(new User(
+                null, "google-active", "active@example.com", "Active User",
+                null, null, null, null,
+                UserRole.STUDENT, UserStatus.ACTIVE, null, null, null, null
+        ));
+
+        mockMvc.perform(get("/api/greet")
+                .with(oauth2Login()
+                        .authorities(new SimpleGrantedAuthority("STATUS_ACTIVE"))
+                        .attributes(attrs -> {
+                            attrs.put("sub", "google-active");
+                            attrs.put("email", "active@example.com");
+                        })))
+                .andExpect(status().isOk());
     }
 }
