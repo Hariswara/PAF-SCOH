@@ -1,15 +1,12 @@
 package com.smartcampus.controller;
 
+import com.smartcampus.dto.NonStudentRegistrationRequest;
+import com.smartcampus.dto.StudentRegistrationRequest;
 import com.smartcampus.model.User;
-import com.smartcampus.repository.UserRepository;
+import com.smartcampus.service.AuthService;
+import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Map;
-
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -18,10 +15,10 @@ import java.util.Map;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    private final UserRepository userRepository;
+    private final AuthService authService;
 
-    public AuthController(UserRepository userRepository) {
-        this.userRepository = userRepository;
+    public AuthController(AuthService authService) {
+        this.authService = authService;
     }
 
     @GetMapping("/status")
@@ -30,22 +27,24 @@ public class AuthController {
             return Map.of("authenticated", false);
         }
 
-        String email = principal.getAttribute("email");
-        return userRepository.findByEmail(email)
-                .map(user -> Map.of(
-                        "authenticated", true,
-                        "user", user
-                ))
-                .orElse(Map.of("authenticated", false));
+        User user = authService.getCurrentUser();
+        if (user == null) {
+            return Map.of("authenticated", false);
+        }
+
+        return Map.of(
+                "authenticated", true,
+                "user", user
+        );
     }
 
     @PostMapping("/register/student")
-    public Map<String, String> registerStudent() {
-        return Map.of("message", "Student registration stub");
+    public User registerStudent(@Valid @RequestBody StudentRegistrationRequest request) {
+        return authService.registerStudent(request);
     }
 
     @PostMapping("/register/non-student")
-    public Map<String, String> registerNonStudent() {
-        return Map.of("message", "Non-student registration stub");
+    public User registerNonStudent(@Valid @RequestBody NonStudentRegistrationRequest request) {
+        return authService.registerNonStudent(request);
     }
 }

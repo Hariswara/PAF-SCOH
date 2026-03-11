@@ -7,6 +7,7 @@ import LoginPage from '@/pages/LoginPage';
 import DashboardPage from '@/pages/DashboardPage';
 import RegisterPage from '@/pages/RegisterPage';
 import { PendingActivationPage, SuspendedPage, UnauthorizedPage } from '@/pages/StatusPages';
+import UserManagementPage from '@/pages/admin/UserManagementPage';
 
 function App() {
   return (
@@ -52,6 +53,16 @@ function App() {
             element={
               <AuthGuard>
                 <DashboardPage />
+              </AuthGuard>
+            } 
+          />
+
+          {/* Admin Routes */}
+          <Route 
+            path="/admin/users" 
+            element={
+              <AuthGuard allowedRoles={['SUPER_ADMIN']}>
+                <UserManagementPage />
               </AuthGuard>
             } 
           />
