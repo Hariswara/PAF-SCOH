@@ -1,0 +1,87 @@
+package com.smartcampus.service;
+
+import com.smartcampus.dto.NonStudentRegistrationRequest;
+import com.smartcampus.dto.StudentRegistrationRequest;
+import com.smartcampus.model.User;
+import com.smartcampus.model.UserRole;
+import com.smartcampus.model.UserStatus;
+import com.smartcampus.repository.UserRepository;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+
+@Service
+public class AuthService {
+
+    private final UserRepository userRepository;
+
+    public AuthService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    public User getCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof OAuth2User principal) {
+            String email = principal.getAttribute("email");
+            return userRepository.findByEmail(email).orElse(null);
+        }
+        return null;
+    }
+
+    @Transactional
+    public User registerStudent(StudentRegistrationRequest request) {
+        User user = getCurrentUser();
+        if (user == null || user.status() != UserStatus.PENDING_PROFILE) {
+            throw new IllegalStateException("Only users with PENDING_PROFILE status can register");
+        }
+
+        User updated = new User(
+            user.id(),
+            user.googleId(),
+            user.email(),
+            request.fullName(),
+            request.studentId(),
+            request.department(),
+            request.phone(),
+            user.profilePicture(),
+            UserRole.STUDENT,
+            UserStatus.ACTIVE,
+            null,
+            Instant.now(),
+            user.createdAt(),
+            null
+        );
+
+        return userRepository.save(updated);
+    }
+
+    @Transactional
+    public User registerNonStudent(NonStudentRegistrationRequest request) {
+        User user = getCurrentUser();
+        if (user == null || user.status() != UserStatus.PENDING_PROFILE) {
+            throw new IllegalStateException("Only users with PENDING_PROFILE status can register");
+        }
+
+        User updated = new User(
+            user.id(),
+            user.googleId(),
+            user.email(),
+            request.fullName(),
+            null, null,
+            request.phone(),
+            user.profilePicture(),
+            null, // Role remains null until Super Admin assigns it
+            UserStatus.PENDING_ACTIVATION,
+            null,
+            Instant.now(),
+            user.createdAt(),
+            null
+        );
+
+        return userRepository.save(updated);
+    }
+}
