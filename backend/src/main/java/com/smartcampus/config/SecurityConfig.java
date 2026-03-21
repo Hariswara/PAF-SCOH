@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.Http403ForbiddenEntryPoint;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
@@ -24,26 +24,22 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        CsrfTokenRequestAttributeHandler requestHandler = new CsrfTokenRequestAttributeHandler();
+        requestHandler.setCsrfRequestAttributeName(null);
+
         http
             .csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                .csrfTokenRequestHandler(requestHandler)
                 .ignoringRequestMatchers("/api/auth/logout")
             )
+            .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
-                // Public endpoints
                 .requestMatchers("/", "/index.html", "/static/**", "/*.png", "/*.ico", "/*.json").permitAll()
                 .requestMatchers("/api/auth/status").permitAll()
-                
-                // Registration endpoints - only for users needing profile completion
                 .requestMatchers("/api/auth/register/**").hasAuthority("STATUS_PENDING_PROFILE")
-                
-                // Admin endpoints
                 .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
-                
-                // All other API functional endpoints require ACTIVE status
                 .requestMatchers("/api/**").hasAuthority("STATUS_ACTIVE")
-                
                 .anyRequest().authenticated()
             )
             .oauth2Login(oauth2 -> oauth2
@@ -58,11 +54,13 @@ public class SecurityConfig {
                 .invalidateHttpSession(true)
             )
             .exceptionHandling(ex -> ex
-                // For API requests, return 401 instead of redirecting to login page
-                .defaultAuthenticationEntryPointFor(
-                    (request, response, authException) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED),
-                    new AntPathRequestMatcher("/api/**")
-                )
+                .authenticationEntryPoint((request, response, authException) -> {
+                    if (request.getRequestURI().startsWith("/api/")) {
+                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+                    } else {
+                        response.sendRedirect("/oauth2/authorization/google");
+                    }
+                })
                 .accessDeniedHandler((request, response, accessDeniedException) -> 
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: " + accessDeniedException.getMessage())
                 )
