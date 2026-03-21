@@ -8,6 +8,7 @@ import DashboardPage from '@/pages/DashboardPage';
 import RegisterPage from '@/pages/RegisterPage';
 import { PendingActivationPage, SuspendedPage, UnauthorizedPage } from '@/pages/StatusPages';
 import UserManagementPage from '@/pages/admin/UserManagementPage';
+import DomainManagementPage from '@/pages/admin/DomainManagementPage';
 
 function App() {
   return (
@@ -24,7 +25,7 @@ function App() {
             } 
           />
 
-          {/* Status Pages (Protected but accessible by specific states) */}
+          {/* Status Pages */}
           <Route path="/suspended" element={<SuspendedPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
           
@@ -47,7 +48,7 @@ function App() {
             } 
           />
 
-          {/* Authenticated Functional Routes */}
+          {/* Dashboard */}
           <Route 
             path="/dashboard" 
             element={
@@ -63,6 +64,14 @@ function App() {
             element={
               <AuthGuard allowedRoles={['SUPER_ADMIN']}>
                 <UserManagementPage />
+              </AuthGuard>
+            } 
+          />
+          <Route 
+            path="/admin/domains" 
+            element={
+              <AuthGuard allowedRoles={['SUPER_ADMIN']}>
+                <DomainManagementPage />
               </AuthGuard>
             } 
           />

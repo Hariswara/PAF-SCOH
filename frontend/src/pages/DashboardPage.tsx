@@ -1,7 +1,5 @@
-import React from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-
 import { Link } from 'react-router-dom';
 
 const DashboardPage: React.FC = () => {
@@ -14,9 +12,14 @@ const DashboardPage: React.FC = () => {
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <div className="flex gap-2">
             {user?.role === 'SUPER_ADMIN' && (
-              <Link to="/admin/users">
-                <Button variant="secondary">User Management</Button>
-              </Link>
+              <>
+                <Link to="/admin/users">
+                  <Button variant="secondary">User Management</Button>
+                </Link>
+                <Link to="/admin/domains">
+                  <Button variant="secondary">Domain Management</Button>
+                </Link>
+              </>
             )}
             <Button variant="outline" onClick={logout}>Logout</Button>
           </div>
