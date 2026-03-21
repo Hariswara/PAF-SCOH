@@ -38,6 +38,13 @@ public class SecurityConfig {
                 .requestMatchers("/", "/index.html", "/static/**", "/*.png", "/*.ico", "/*.json").permitAll()
                 .requestMatchers("/api/auth/status").permitAll()
                 .requestMatchers("/api/auth/register/**").hasAuthority("STATUS_PENDING_PROFILE")
+                
+                // Domain management - Write actions are SUPER_ADMIN only
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/domains").hasRole("SUPER_ADMIN")
+                .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/domains/**").hasRole("SUPER_ADMIN")
+                .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/domains/**").hasRole("SUPER_ADMIN")
+                .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/domains/**").hasRole("SUPER_ADMIN")
+                
                 .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
                 .requestMatchers("/api/**").hasAuthority("STATUS_ACTIVE")
                 .anyRequest().authenticated()
