@@ -41,3 +41,32 @@ CREATE TABLE IF NOT EXISTS user_role_audit (
     reason TEXT,
     changed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS tickets (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    resource_id VARCHAR(255) NOT NULL,
+    location VARCHAR(255) NOT NULL,
+    category VARCHAR(50) NOT NULL, -- ELECTRICAL, PLUMBING, HVAC, EQUIPMENT, etc. 
+    description TEXT NOT NULL,
+    priority VARCHAR(20) NOT NULL, -- LOW, MEDIUM, HIGH, CRITICAL
+    preferred_contact VARCHAR(255) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'OPEN', -- OPEN, IN_PROGRESS, RESOLVED, CLOSED, REJECTED
+    rejection_reason TEXT,
+    assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
+    resolution_notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS ticket_attachments(
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    uploaded_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    filename VARCHAR(255) NOT NULL,
+    content_type VARCHAR(255) NOT NULL,
+    storage_path TEXT NOT NULL,
+    file_size BIGINT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+
+);

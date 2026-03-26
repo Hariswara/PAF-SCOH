@@ -41,3 +41,32 @@ CREATE TABLE IF NOT EXISTS user_role_audit (
     reason TEXT,
     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+--tickets Table
+CREATE TABLE IF NOT EXISTS tickets (
+    id UUID DEFAULT random_uuid() PRIMARY KEY,
+    created_by UUID NOT NULL,
+    resource_id VARCHAR(255),
+    location VARCHAR(255) NOT NULL,
+    category VARCHAR(50) NOT NULL,
+    description TEXT NOT NULL,
+    priority VARCHAR(20) NOT NULL,
+    preferred_contact VARCHAR(255),
+    status VARCHAR(20) NOT NULL DEFAULT 'OPEN',
+    rejection_reason TEXT,
+    assigned_to UUID,
+    resolution_notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS ticket_attachments (
+    id UUID DEFAULT random_uuid() PRIMARY KEY,
+    ticket_id UUID NOT NULL,
+    uploaded_by UUID NOT NULL,
+    filename VARCHAR(255) NOT NULL,
+    content_type VARCHAR(100) NOT NULL,
+    storage_path TEXT NOT NULL,
+    file_size BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
