@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS user_role_audit (
     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+--tickets Table
 CREATE TABLE IF NOT EXISTS tickets (
     id UUID DEFAULT random_uuid() PRIMARY KEY,
     created_by UUID NOT NULL,

@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS user_role_audit (
 );
 
 CREATE TABLE IF NOT EXISTS tickets (
-    id UUID DEFAULT random_uuid() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     resource_id VARCHAR(255) NOT NULL,
     location VARCHAR(255) NOT NULL,
