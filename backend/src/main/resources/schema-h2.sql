@@ -41,3 +41,20 @@ CREATE TABLE IF NOT EXISTS user_role_audit (
     reason TEXT,
     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS tickets (
+    id UUID DEFAULT random_uuid() PRIMARY KEY,
+    created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    resource_id VARCHAR(255) NOT NULL,
+    location VARCHAR(255) NOT NULL,
+    category VARCHAR(50) NOT NULL,  
+    description TEXT NOT NULL,
+    priority VARCHAR(20) NOT NULL,
+    preferred_contact VARCHAR(255) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'OPEN',
+    rejection_reason TEXT,
+    assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
+    resolution_notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT TIMESTAMP
+);
