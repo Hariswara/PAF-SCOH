@@ -44,29 +44,28 @@ CREATE TABLE IF NOT EXISTS user_role_audit (
 
 CREATE TABLE IF NOT EXISTS tickets (
     id UUID DEFAULT random_uuid() PRIMARY KEY,
-    created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    resource_id VARCHAR(255) NOT NULL,
+    created_by UUID NOT NULL,
+    resource_id VARCHAR(255),
     location VARCHAR(255) NOT NULL,
-    category VARCHAR(50) NOT NULL,  
+    category VARCHAR(50) NOT NULL,
     description TEXT NOT NULL,
     priority VARCHAR(20) NOT NULL,
-    preferred_contact VARCHAR(255) NOT NULL,
+    preferred_contact VARCHAR(255),
     status VARCHAR(20) NOT NULL DEFAULT 'OPEN',
     rejection_reason TEXT,
-    assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
+    assigned_to UUID,
     resolution_notes TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS ticket_attachments(
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
-    uploaded_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS ticket_attachments (
+    id UUID DEFAULT random_uuid() PRIMARY KEY,
+    ticket_id UUID NOT NULL,
+    uploaded_by UUID NOT NULL,
     filename VARCHAR(255) NOT NULL,
-    content_type VARCHAR(255) NOT NULL,
+    content_type VARCHAR(100) NOT NULL,
     storage_path TEXT NOT NULL,
     file_size BIGINT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-
-)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
