@@ -30,10 +30,27 @@ const RegisterPage: React.FC = () => {
 
     try {
       const endpoint = step === 'student' ? '/auth/register/student' : '/auth/register/non-student';
-      await api.post(endpoint, formData);
+      
+      // Clean request body: send only what's needed
+      const payload = step === 'student' 
+        ? { fullName: formData.fullName, studentId: formData.studentId, department: formData.department, phone: formData.phone }
+        : { fullName: formData.fullName, phone: formData.phone };
+
+      await api.post(endpoint, payload);
       await checkAuth(); // Refresh user state to trigger redirect via AuthGuard
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Registration failed. Please check your inputs.');
+      console.error('Registration error:', err.response?.data);
+      const serverMessage = err.response?.data?.message;
+      const validationErrors = err.response?.data?.errors;
+      
+      if (validationErrors && typeof validationErrors === 'object') {
+        const errorList = Object.entries(validationErrors)
+          .map(([field, msg]) => `${field}: ${msg}`)
+          .join(', ');
+        setError(`Validation failed: ${errorList}`);
+      } else {
+        setError(serverMessage || 'Registration failed. Please verify your details.');
+      }
     } finally {
       setIsSubmitting(false);
     }

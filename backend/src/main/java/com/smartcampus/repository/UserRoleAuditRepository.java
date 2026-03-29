@@ -10,4 +10,5 @@ import java.util.UUID;
 @Repository
 public interface UserRoleAuditRepository extends ListCrudRepository<UserRoleAudit, UUID> {
     List<UserRoleAudit> findByUserIdOrderByChangedAtDesc(UUID userId);
+    List<UserRoleAudit> findAllByOrderByChangedAtDesc();
 }

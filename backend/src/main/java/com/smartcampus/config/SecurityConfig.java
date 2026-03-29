@@ -1,5 +1,6 @@
 package com.smartcampus.config;
 
+import com.smartcampus.repository.UserRepository;
 import com.smartcampus.service.CustomOAuth2UserService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
@@ -17,9 +18,11 @@ import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 public class SecurityConfig {
 
     private final CustomOAuth2UserService oauth2UserService;
+    private final UserRepository userRepository;
 
-    public SecurityConfig(CustomOAuth2UserService oauth2UserService) {
+    public SecurityConfig(CustomOAuth2UserService oauth2UserService, UserRepository userRepository) {
         this.oauth2UserService = oauth2UserService;
+        this.userRepository = userRepository;
     }
 
     @Bean
@@ -34,6 +37,7 @@ public class SecurityConfig {
                 .ignoringRequestMatchers("/api/auth/logout")
             )
             .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
+            .addFilterAfter(new UserStatusFilter(userRepository), CsrfCookieFilter.class)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/", "/index.html", "/static/**", "/*.png", "/*.ico", "/*.json").permitAll()
                 .requestMatchers("/api/auth/status").permitAll()
