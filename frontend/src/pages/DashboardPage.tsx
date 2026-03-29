@@ -1,10 +1,91 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import type { User } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import api from '@/lib/api';
+import { format } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+interface DashboardStats {
+  totalUsers: number;
+  activeDomains: number;
+  pendingActivations: number;
+  systemAlerts: number;
+}
+
+interface AuditLog {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  changedByName: string;
+  newRole: string;
+  newDomainName: string | null;
+  changedAt: string;
+}
+
+const STORAGE_KEYS = {
+  STATS: 'scoh_dashboard_stats',
+  ACTIVITY: 'scoh_dashboard_activity',
+  PENDING: 'scoh_dashboard_pending',
+  TIMESTAMP: 'scoh_dashboard_last_fetch'
+};
 
 const DashboardPage: React.FC = () => {
   const { user, logout } = useAuth();
+  
+  // Hydrate state from localStorage
+  const [stats, setStats] = useState<DashboardStats | null>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.STATS);
+    return saved ? JSON.parse(saved) : null;
+  });
+  
+  const [recentActivity, setRecentActivity] = useState<AuditLog[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.ACTIVITY);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [pendingUsers, setPendingUsers] = useState<User[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.PENDING);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [isLoading, setIsLoading] = useState(!stats);
+
+  const fetchAdminData = async () => {
+    try {
+      const [statsRes, logsRes, pendingRes] = await Promise.all([
+        api.get('/admin/users/dashboard/stats'),
+        api.get('/admin/users/audit-logs'),
+        api.get('/admin/users/pending-activations')
+      ]);
+      
+      const newStats = statsRes.data;
+      const newActivity = logsRes.data.slice(0, 5);
+      const newPending = pendingRes.data;
+
+      setStats(newStats);
+      setRecentActivity(newActivity);
+      setPendingUsers(newPending);
+
+      localStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(newStats));
+      localStorage.setItem(STORAGE_KEYS.ACTIVITY, JSON.stringify(newActivity));
+      localStorage.setItem(STORAGE_KEYS.PENDING, JSON.stringify(newPending));
+      localStorage.setItem(STORAGE_KEYS.TIMESTAMP, Date.now().toString());
+      
+    } catch (error) {
+      console.error('Failed to refresh dashboard data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.role === 'SUPER_ADMIN') {
+      fetchAdminData();
+    }
+  }, [user]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -15,65 +96,113 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
-      {/* Top Navigation */}
-      <nav className="border-b border-border bg-card px-8 py-5 flex justify-between items-center sticky top-0 z-50">
+      <nav className="border-b border-border bg-card px-8 py-4 flex justify-between items-center sticky top-0 z-50">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-serif font-bold text-lg">
             {user?.fullName.charAt(0)}
           </div>
           <div>
             <h1 className="font-serif text-2xl text-primary leading-none">Smart Campus Hub</h1>
-            <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">University Operations</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">University Operations</p>
           </div>
         </div>
         <div className="flex items-center gap-6">
+          <div className="hidden lg:flex items-center gap-6 border-r border-border pr-6">
+            <Link to="/resources" className="text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors">Resources</Link>
+            <Link to="/bookings" className="text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors">Bookings</Link>
+            <Link to="/tickets" className="text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors">Tickets</Link>
+          </div>
           {user?.role === 'SUPER_ADMIN' && (
             <div className="flex items-center gap-4 border-r border-border pr-6">
-              <Link to="/admin/users" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
-                User Management
+              <Link to="/admin/users" className="text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors">
+                Personnel
               </Link>
-              <Link to="/admin/domains" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
-                Domain Management
+              <Link to="/admin/domains" className="text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors">
+                Domains
               </Link>
             </div>
           )}
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-bold text-primary">{user?.fullName}</p>
-              <p className="text-xs text-muted-foreground">{user?.role?.replace('_', ' ')}</p>
+              <p className="text-xs font-bold text-primary">{user?.fullName}</p>
+              <p className="text-[10px] text-muted-foreground">{user?.role?.replace('_', ' ')}</p>
             </div>
-            <Button variant="outline" size="sm" onClick={logout} className="rounded-none border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-all">
+            <Button variant="outline" size="sm" onClick={logout} className="h-8 rounded-none border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-all text-[10px] uppercase font-bold tracking-widest">
               Sign Out
             </Button>
           </div>
         </div>
       </nav>
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-8 sm:p-12">
-        <header className="mb-12 border-b border-border pb-8">
-          <h2 className="text-4xl font-serif text-primary mb-2">
-            {getGreeting()}, {user?.fullName.split(' ')[0]}.
-          </h2>
-          <p className="text-muted-foreground font-light text-lg">
-            Here is the overview of your campus activities and responsibilities.
-          </p>
+      <main className="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-8">
+        <header className="mb-8 border-b border-border pb-6 flex justify-between items-end">
+          <div>
+            <h2 className="text-3xl font-serif text-primary mb-1">
+              {getGreeting()}, {user?.fullName.split(' ')[0]}.
+            </h2>
+            <p className="text-muted-foreground font-light text-sm">
+              Operational overview for today, {format(new Date(), 'EEEE, MMMM do')}.
+            </p>
+          </div>
+          {isLoading && stats && (
+            <div className="flex items-center gap-2 mb-1">
+               <div className="w-3 h-3 border-2 border-secondary border-t-transparent rounded-full animate-spin"></div>
+               <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Updating...</span>
+            </div>
+          )}
         </header>
 
         {user?.role === 'STUDENT' && <StudentDashboard />}
         {user?.role === 'DOMAIN_ADMIN' && <DomainAdminDashboard />}
         {user?.role === 'TECHNICIAN' && <TechnicianDashboard />}
-        {user?.role === 'SUPER_ADMIN' && <SuperAdminDashboard />}
-        
+        {user?.role === 'SUPER_ADMIN' && (
+          isLoading && !stats ? (
+            <div className="flex justify-center py-20">
+              <div className="w-8 h-8 border-4 border-secondary border-t-primary rounded-full animate-spin"></div>
+            </div>
+          ) : (
+            <SuperAdminDashboard 
+              stats={stats} 
+              activity={recentActivity} 
+              pending={pendingUsers} 
+              onActionComplete={fetchAdminData}
+            />
+          )
+        )}
       </main>
     </div>
   );
 };
 
-// --- Role Specific Dashboard Components ---
-
 const StudentDashboard = () => (
-  <div className="space-y-12">
+  <div className="space-y-8">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <Link to="/resources" className="group p-6 bg-card border border-border hover:border-secondary transition-all hover:shadow-lg relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-16 h-16 bg-secondary/5 rounded-bl-[60px] transition-transform group-hover:scale-110"></div>
+        <div className="relative z-10 text-primary group-hover:text-secondary transition-colors">
+          <h3 className="text-lg font-serif font-bold mb-1">Resource Catalog</h3>
+          <p className="text-xs text-muted-foreground font-light mb-4">Browse and find study spaces.</p>
+          <div className="text-[10px] font-bold tracking-widest uppercase">Explore →</div>
+        </div>
+      </Link>
+      <Link to="/bookings" className="group p-6 bg-card border border-border hover:border-primary transition-all hover:shadow-lg relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-16 h-16 bg-primary/5 rounded-bl-[60px] transition-transform group-hover:scale-110"></div>
+        <div className="relative z-10 text-primary group-hover:text-primary transition-colors">
+          <h3 className="text-lg font-serif font-bold mb-1">My Bookings</h3>
+          <p className="text-xs text-muted-foreground font-light mb-4">Manage reservations.</p>
+          <div className="text-[10px] font-bold tracking-widest uppercase">Manage →</div>
+        </div>
+      </Link>
+      <Link to="/tickets" className="group p-6 bg-card border border-border hover:border-destructive transition-all hover:shadow-lg relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-16 h-16 bg-destructive/5 rounded-bl-[60px] transition-transform group-hover:scale-110"></div>
+        <div className="relative z-10 text-primary group-hover:text-destructive transition-colors">
+          <h3 className="text-lg font-serif font-bold mb-1">Support Tickets</h3>
+          <p className="text-xs text-muted-foreground font-light mb-4">Report technical issues.</p>
+          <div className="text-[10px] font-bold tracking-widest uppercase">Open Case →</div>
+        </div>
+      </Link>
+    </div>
+
     <section>
       <div className="flex justify-between items-end mb-6">
         <h3 className="text-2xl font-serif text-primary border-l-4 border-secondary pl-4">Academic Schedule</h3>
@@ -96,190 +225,141 @@ const StudentDashboard = () => (
         ))}
       </div>
     </section>
-
-    <section className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-      <div>
-         <h3 className="text-2xl font-serif text-primary border-l-4 border-primary pl-4 mb-6">Active Bookings</h3>
-         <div className="bg-card border border-border divide-y divide-border">
-            <div className="p-4 flex justify-between items-center">
-              <div>
-                <p className="font-bold text-primary">Library Discussion Room 4</p>
-                <p className="text-sm text-muted-foreground">Today, 14:00 - 16:00</p>
-              </div>
-              <span className="text-xs font-bold px-2 py-1 bg-green-100 text-green-800 uppercase tracking-widest">Confirmed</span>
-            </div>
-            <div className="p-4 flex justify-between items-center">
-              <div>
-                <p className="font-bold text-primary">Main Auditorium (Event)</p>
-                <p className="text-sm text-muted-foreground">Tomorrow, 09:00 - 12:00</p>
-              </div>
-              <span className="text-xs font-bold px-2 py-1 bg-yellow-100 text-yellow-800 uppercase tracking-widest">Pending</span>
-            </div>
-         </div>
-      </div>
-      <div>
-         <h3 className="text-2xl font-serif text-primary border-l-4 border-muted-foreground pl-4 mb-6">Recent Announcements</h3>
-         <div className="space-y-4">
-            <article className="border-b border-border pb-4">
-              <p className="text-xs text-secondary font-bold mb-1">MARCH 21, 2026</p>
-              <h4 className="text-base font-bold text-primary mb-1">Campus Wi-Fi Maintenance Notice</h4>
-              <p className="text-sm text-muted-foreground font-light line-clamp-2">Scheduled maintenance for the main campus network will occur this weekend...</p>
-            </article>
-            <article className="border-b border-border pb-4">
-              <p className="text-xs text-secondary font-bold mb-1">MARCH 19, 2026</p>
-              <h4 className="text-base font-bold text-primary mb-1">End of Semester Exam Guidelines</h4>
-              <p className="text-sm text-muted-foreground font-light line-clamp-2">Please review the updated guidelines for the upcoming examination period...</p>
-            </article>
-         </div>
-      </div>
-    </section>
   </div>
 );
 
-const DomainAdminDashboard = () => (
-  <div className="space-y-12">
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-      {[
-        { label: 'Active Resources', value: '42' },
-        { label: 'Pending Bookings', value: '18' },
-        { label: 'Open Tickets', value: '5' },
-        { label: 'Domain Utilization', value: '78%' },
-      ].map((stat, i) => (
-        <div key={i} className="bg-primary text-primary-foreground p-6 relative overflow-hidden group">
-          <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/5 rounded-full transition-transform group-hover:scale-150"></div>
-          <p className="text-sm font-medium opacity-80 uppercase tracking-wider mb-2 relative z-10">{stat.label}</p>
-          <p className="text-4xl font-serif relative z-10">{stat.value}</p>
-        </div>
-      ))}
-    </div>
+const SuperAdminDashboard = ({ stats, activity, pending, onActionComplete }: { 
+  stats: DashboardStats | null, 
+  activity: AuditLog[], 
+  pending: User[], 
+  onActionComplete: () => void 
+}) => {
+  
+  const handleAssignRole = async (userId: string, role: string) => {
+    try {
+      await api.put(`/admin/users/${userId}/role`, {
+        newRole: role,
+        reason: 'Initial assignment from dashboard queue'
+      });
+      onActionComplete();
+    } catch (error) {
+      alert('Assignment failed. Domain Admin requires full personnel console for domain selection.');
+    }
+  };
 
-    <section>
-      <h3 className="text-2xl font-serif text-primary border-l-4 border-secondary pl-4 mb-6">Requires Attention</h3>
-      <div className="bg-card border border-border shadow-sm">
-        <table className="w-full text-left">
-          <thead className="bg-muted text-muted-foreground text-xs uppercase tracking-wider">
-            <tr>
-              <th className="p-4 font-medium">Request Type</th>
-              <th className="p-4 font-medium">Requested By</th>
-              <th className="p-4 font-medium">Resource</th>
-              <th className="p-4 font-medium">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border text-sm">
-            <tr>
-              <td className="p-4 font-bold text-primary">Large Event Booking</td>
-              <td className="p-4 text-muted-foreground">Sarah Jenkins (Student)</td>
-              <td className="p-4">Main Hall</td>
-              <td className="p-4"><Button size="sm" variant="outline" className="rounded-none h-8">Review</Button></td>
-            </tr>
-            <tr>
-              <td className="p-4 font-bold text-primary">Equipment Requisition</td>
-              <td className="p-4 text-muted-foreground">Prof. Alan Turing</td>
-              <td className="p-4">Projector Set B</td>
-              <td className="p-4"><Button size="sm" variant="outline" className="rounded-none h-8">Review</Button></td>
-            </tr>
-          </tbody>
-        </table>
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="p-6 border-t-4 border-primary bg-card shadow-sm hover:shadow-md transition-all">
+          <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-3">Total Users</h4>
+          <p className="text-4xl font-serif text-primary mb-1">{stats?.totalUsers ?? '...'}</p>
+          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Campus Personnel</p>
+        </div>
+        <div className="p-6 border-t-4 border-secondary bg-card shadow-sm hover:shadow-md transition-all">
+          <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-3">Active Domains</h4>
+          <p className="text-4xl font-serif text-primary mb-1">{stats?.activeDomains ?? '...'}</p>
+          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Operating Units</p>
+        </div>
+        <div className="p-6 border-t-4 border-destructive bg-card shadow-sm hover:shadow-md transition-all">
+          <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-3">System Alerts</h4>
+          <p className="text-4xl font-serif text-primary mb-1">{stats?.systemAlerts ?? '0'}</p>
+          <p className="text-[10px] text-destructive font-bold uppercase tracking-wider">Suspended Access</p>
+        </div>
       </div>
-    </section>
-  </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <section>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-serif text-primary border-l-4 border-primary pl-4">System Audit Feed</h3>
+            <Link to="/admin/audit" className="text-[10px] font-bold uppercase tracking-widest text-secondary hover:underline">Full Log →</Link>
+          </div>
+          <div className="space-y-0 border border-border bg-card shadow-sm max-h-[350px] overflow-y-auto">
+            {activity.length === 0 ? (
+               <div className="p-8 text-center text-muted-foreground font-light italic text-sm">No recent activities recorded.</div>
+            ) : (
+              activity.map((log) => (
+                <div key={log.id} className="p-4 border-b border-border flex gap-4 items-center group hover:bg-muted/30 transition-colors">
+                  <div className="text-[10px] text-muted-foreground font-mono min-w-[85px] leading-tight">
+                    {format(new Date(log.changedAt), 'MMM dd')} <br />
+                    <span className="opacity-60">{format(new Date(log.changedAt), 'HH:mm')}</span>
+                  </div>
+                  <div className="text-xs font-medium text-primary/80">
+                     <span className="font-bold text-primary">{log.userEmail}</span> transitioned to <span className="text-secondary font-bold">
+                       {log.newRole.replace('_', ' ')} {log.newDomainName ? `(${log.newDomainName})` : ''}
+                     </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
+        <section>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-serif text-primary border-l-4 border-secondary pl-4">Pending Clearance</h3>
+            <span className="bg-secondary/10 text-secondary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest">
+              {pending.length} Waiting
+            </span>
+          </div>
+          <div className="bg-card border border-border shadow-sm overflow-hidden flex flex-col max-h-[350px]">
+            {pending.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
+                <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 text-muted-foreground/40">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="square" strokeLinejoin="miter" strokeWidth="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+                <p className="text-sm font-serif text-primary font-bold">Queue Clear</p>
+                <p className="text-xs text-muted-foreground font-light">All staff accounts are currently active.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border overflow-y-auto">
+                {pending.map((p) => (
+                  <div key={p.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-muted/20 transition-colors">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-primary truncate">{p.fullName}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{p.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Select onValueChange={(val) => {
+                        if (val === 'DOMAIN_ADMIN') {
+                          window.location.href = '/admin/users';
+                        } else {
+                          handleAssignRole(p.id, val);
+                        }
+                      }}>
+                        <SelectTrigger className="h-8 w-28 text-[10px] font-bold uppercase tracking-wider rounded-none">
+                          <SelectValue placeholder="CLEAR AS..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="TECHNICIAN">Technician</SelectItem>
+                          <SelectItem value="DOMAIN_ADMIN">Domain Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button variant="ghost" size="sm" asChild className="h-8 text-[10px] font-bold uppercase tracking-widest">
+                        <Link to="/admin/users">Full Profile</Link>
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="p-3 bg-muted/30 border-t border-border mt-auto">
+               <p className="text-[9px] text-center text-muted-foreground uppercase tracking-widest font-medium">
+                 Authorized staff must be vetted before granting system-wide access.
+               </p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+};
+
+const DomainAdminDashboard = () => (
+  <div className="p-12 text-center text-muted-foreground italic">Domain Admin Console (Optimizing Space...)</div>
 );
 
 const TechnicianDashboard = () => (
-  <div className="space-y-12">
-    <div className="flex items-center gap-4 mb-8 bg-secondary/10 p-4 border border-secondary/30">
-      <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
-      <p className="text-sm font-medium text-primary">You have <span className="font-bold">3 high-priority</span> maintenance tickets assigned to you.</p>
-    </div>
-
-    <section>
-      <h3 className="text-2xl font-serif text-primary border-l-4 border-primary pl-4 mb-6">Assigned Work Orders</h3>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {[
-          { id: 'TKT-8902', issue: 'Network Switch Failure', loc: 'IT Block, Floor 2', status: 'URGENT' },
-          { id: 'TKT-8905', issue: 'Projector Color Distortion', loc: 'Hall A', status: 'HIGH' },
-          { id: 'TKT-8911', issue: 'AC Unit Noise Complaint', loc: 'Library Discussion Room', status: 'NORMAL' },
-          { id: 'TKT-8915', issue: 'Smart Board Calibration', loc: 'Lab 4', status: 'NORMAL' },
-        ].map((tkt, i) => (
-          <div key={i} className="flex border border-border bg-card hover:shadow-md transition-shadow">
-            <div className={`w-2 ${tkt.status === 'URGENT' ? 'bg-destructive' : tkt.status === 'HIGH' ? 'bg-secondary' : 'bg-primary'}`}></div>
-            <div className="p-6 flex-1 flex flex-col justify-between">
-              <div>
-                <div className="flex justify-between items-start mb-2">
-                  <span className="text-xs font-mono text-muted-foreground">{tkt.id}</span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 bg-muted">{tkt.status}</span>
-                </div>
-                <h4 className="text-lg font-bold text-primary mb-1">{tkt.issue}</h4>
-                <p className="text-sm text-muted-foreground font-light">{tkt.loc}</p>
-              </div>
-              <div className="mt-6 flex justify-end">
-                <button className="text-xs font-bold uppercase tracking-widest text-primary hover:text-secondary transition-colors">
-                  Update Status →
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  </div>
-);
-
-const SuperAdminDashboard = () => (
-  <div className="space-y-12">
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-      <div className="p-8 border-t-4 border-primary bg-card shadow-sm">
-        <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Total Users</h4>
-        <p className="text-5xl font-serif text-primary mb-2">1,248</p>
-        <p className="text-sm text-green-600 font-medium">+12 this week</p>
-      </div>
-      <div className="p-8 border-t-4 border-secondary bg-card shadow-sm">
-        <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Active Domains</h4>
-        <p className="text-5xl font-serif text-primary mb-2">14</p>
-        <p className="text-sm text-muted-foreground font-medium">All operational</p>
-      </div>
-      <div className="p-8 border-t-4 border-destructive bg-card shadow-sm">
-        <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">System Alerts</h4>
-        <p className="text-5xl font-serif text-primary mb-2">2</p>
-        <p className="text-sm text-destructive font-medium">Requires immediate review</p>
-      </div>
-    </div>
-
-    <section className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-      <div>
-        <h3 className="text-2xl font-serif text-primary border-l-4 border-primary pl-4 mb-6">Recent System Audit</h3>
-        <div className="space-y-0 border border-border bg-card">
-          <div className="p-4 border-b border-border flex gap-4 items-center">
-            <div className="text-xs text-muted-foreground font-mono">10:45 AM</div>
-            <div className="text-sm font-medium">New domain <span className="font-bold">"Sports Complex"</span> created.</div>
-          </div>
-          <div className="p-4 border-b border-border flex gap-4 items-center">
-            <div className="text-xs text-muted-foreground font-mono">09:12 AM</div>
-            <div className="text-sm font-medium">User <span className="font-bold">Sarah J.</span> promoted to Domain Admin.</div>
-          </div>
-          <div className="p-4 flex gap-4 items-center">
-            <div className="text-xs text-muted-foreground font-mono">Yesterday</div>
-            <div className="text-sm font-medium">System backup completed successfully.</div>
-          </div>
-        </div>
-      </div>
-      
-      <div className="bg-primary text-primary-foreground p-8 flex flex-col justify-center items-center text-center">
-         <h3 className="font-serif text-3xl mb-4">Quick Management</h3>
-         <p className="text-primary-foreground/70 font-light mb-8 max-w-sm">
-           Navigate directly to administrative consoles to manage university personnel and organizational units.
-         </p>
-         <div className="flex gap-4">
-            <Link to="/admin/users">
-              <Button variant="secondary" className="rounded-none px-6">Manage Users</Button>
-            </Link>
-            <Link to="/admin/domains">
-              <Button variant="outline" className="rounded-none px-6 border-white/20 hover:bg-white/10 text-white">Manage Domains</Button>
-            </Link>
-         </div>
-      </div>
-    </section>
-  </div>
+  <div className="p-12 text-center text-muted-foreground italic">Technician Console (Optimizing Space...)</div>
 );
 
 export default DashboardPage;

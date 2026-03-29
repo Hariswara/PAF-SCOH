@@ -69,15 +69,20 @@ const UserManagementPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-background text-foreground pb-20">
       {/* Header */}
-      <header className="bg-primary text-primary-foreground py-12 px-8 mb-12 relative overflow-hidden">
+      <header className="bg-primary text-primary-foreground py-8 px-8 mb-8 relative overflow-hidden">
         <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-secondary/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4"></div>
         <div className="max-w-7xl mx-auto relative z-10">
-          <Link to="/dashboard" className="text-xs font-bold uppercase tracking-widest text-secondary hover:text-white transition-colors flex items-center mb-6">
-            <span className="mr-2">←</span> Return to Dashboard
-          </Link>
-          <h1 className="text-5xl font-serif mb-4">Personnel Directory</h1>
-          <p className="text-primary-foreground/70 font-light max-w-xl">
-            Review university members, assign administrative privileges, and manage account statuses across the campus network.
+          <div className="flex justify-between items-start mb-4">
+            <Link to="/dashboard" className="text-xs font-bold uppercase tracking-widest text-secondary hover:text-white transition-colors flex items-center">
+              <span className="mr-2">←</span> Return to Dashboard
+            </Link>
+            <Link to="/admin/audit" className="text-xs font-bold uppercase tracking-widest bg-white/10 hover:bg-white/20 text-white px-4 py-2 border border-white/20 transition-all rounded-sm">
+              View Security Audit Logs
+            </Link>
+          </div>
+          <h1 className="text-4xl font-serif mb-2">Personnel Directory</h1>
+          <p className="text-primary-foreground/70 font-light max-w-xl text-sm">
+            Review university members, assign administrative privileges, and manage account statuses.
           </p>
         </div>
       </header>
