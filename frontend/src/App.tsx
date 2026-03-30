@@ -9,6 +9,10 @@ import RegisterPage from '@/pages/RegisterPage';
 import { PendingActivationPage, SuspendedPage, UnauthorizedPage } from '@/pages/StatusPages';
 import UserManagementPage from '@/pages/admin/UserManagementPage';
 import DomainManagementPage from '@/pages/admin/DomainManagementPage';
+import AuditLogPage from '@/pages/admin/AuditLogPage';
+import BookingsPage from '@/pages/BookingsPage';
+import ResourcesPage from '@/pages/ResourcesPage';
+import TicketsPage from '@/pages/TicketsPage';
 
 function App() {
   return (
@@ -48,7 +52,7 @@ function App() {
             } 
           />
 
-          {/* Dashboard */}
+          {/* Core App Routes (Available to all ACTIVE users) */}
           <Route 
             path="/dashboard" 
             element={
@@ -57,8 +61,32 @@ function App() {
               </AuthGuard>
             } 
           />
+          <Route 
+            path="/bookings" 
+            element={
+              <AuthGuard>
+                <BookingsPage />
+              </AuthGuard>
+            } 
+          />
+          <Route 
+            path="/resources" 
+            element={
+              <AuthGuard>
+                <ResourcesPage />
+              </AuthGuard>
+            } 
+          />
+          <Route 
+            path="/tickets" 
+            element={
+              <AuthGuard>
+                <TicketsPage />
+              </AuthGuard>
+            } 
+          />
 
-          {/* Admin Routes */}
+          {/* Admin Specific Routes */}
           <Route 
             path="/admin/users" 
             element={
@@ -72,6 +100,14 @@ function App() {
             element={
               <AuthGuard allowedRoles={['SUPER_ADMIN']}>
                 <DomainManagementPage />
+              </AuthGuard>
+            } 
+          />
+          <Route 
+            path="/admin/audit" 
+            element={
+              <AuthGuard allowedRoles={['SUPER_ADMIN']}>
+                <AuditLogPage />
               </AuthGuard>
             } 
           />
