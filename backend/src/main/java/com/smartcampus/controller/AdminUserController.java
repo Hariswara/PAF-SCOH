@@ -39,4 +39,24 @@ public class AdminUserController {
     public User updateUserStatus(@PathVariable UUID id, @RequestParam UserStatus status) {
         return adminService.updateUserStatus(id, status);
     }
+
+    @GetMapping("/audit-logs")
+    public List<com.smartcampus.dto.AuditLogResponse> getAllAuditLogs() {
+        return adminService.getAllAuditLogs();
+    }
+
+    @GetMapping("/{id}/audit")
+    public List<com.smartcampus.dto.AuditLogResponse> getUserAuditLogs(@PathVariable UUID id) {
+        return adminService.getUserAuditLogs(id);
+    }
+
+    @GetMapping("/dashboard/stats")
+    public com.smartcampus.dto.DashboardStatsResponse getDashboardStats() {
+        return adminService.getDashboardStats();
+    }
+
+    @GetMapping("/pending-activations")
+    public List<User> getPendingActivations() {
+        return adminService.getPendingActivations();
+    }
 }

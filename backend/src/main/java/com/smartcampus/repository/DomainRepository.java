@@ -8,4 +8,5 @@ import java.util.UUID;
 
 @Repository
 public interface DomainRepository extends ListCrudRepository<Domain, UUID> {
+    long countByIsActive(boolean isActive);
 }
