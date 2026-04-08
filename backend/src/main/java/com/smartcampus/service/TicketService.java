@@ -176,6 +176,27 @@ public class TicketService {
                 return buildResponse(ticketRepository.save(updated));
         }
 
+        public TicketResponse addResolutionNotes(UUID ticketId, ResolutionNotesRequest request, OAuth2User principal) {
+                User currentUser = resolveUser(principal);
+                Ticket ticket = findTicket(ticketId);
+
+                boolean isTechnicianOnTicket = currentUser.role() == UserRole.TECHNICIAN
+                                && currentUser.id().equals(ticket.assignedTo());
+
+                if (!isTechnicianOnTicket && !isAdmin(currentUser)) {
+                        throw new UnauthorizedActionException(
+                                        "Only the assigned technician or admin can add resolution notes");
+                }
+
+                Ticket updated = new Ticket(
+                                ticket.id(), ticket.createdBy(), ticket.domainId(), ticket.resourceId(),
+                                ticket.location(), ticket.category(), ticket.description(), ticket.priority(),
+                                ticket.preferredContact(), ticket.status(), ticket.rejectionReason(),
+                                ticket.assignedTo(), request.resolutionNotes(), ticket.linkedTicketId(),
+                                ticket.linkedReportersCount(), ticket.createdAt(), null);
+                return buildResponse(ticketRepository.save(updated));
+        }
+
         // HELPER METHODS
 
         private void validateStatusTransition(TicketStatus current, TicketStatus next, User actor) {
