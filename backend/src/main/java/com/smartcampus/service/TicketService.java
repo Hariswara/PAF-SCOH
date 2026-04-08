@@ -27,6 +27,7 @@ public class TicketService {
         private final TicketCommentRepository commentRepository;
         private final UserRepository userRepository;
         private final CloudinaryService cloudinaryService;
+        private final AuthService authService;
 
         public TicketService(TicketRepository ticketRepository,
                         TicketAttachmentRepository attachmentRepository,
@@ -39,6 +40,7 @@ public class TicketService {
                 this.commentRepository = commentRepository;
                 this.userRepository = userRepository;
                 this.cloudinaryService = cloudinaryService;
+                this.authService = authService;
         }
 
         // CREATE TICKET
@@ -153,6 +155,8 @@ public class TicketService {
                                 .toList();
         }
 
+        // WORKFLOW
+
         public TicketResponse updateStatus(UUID ticketId, UpdateTicketStatusRequest request, OAuth2User principal) {
                 User currentUser = resolveUser(principal);
                 Ticket ticket = findTicket(ticketId);
@@ -172,6 +176,31 @@ public class TicketService {
                                 ticket.location(), ticket.category(), ticket.description(), ticket.priority(),
                                 ticket.preferredContact(), request.status(), rejectionReason,
                                 ticket.assignedTo(), ticket.resolutionNotes(), ticket.linkedTicketId(),
+                                ticket.linkedReportersCount(), ticket.createdAt(), null);
+                return buildResponse(ticketRepository.save(updated));
+        }
+
+        public TicketResponse assignTechnician(UUID ticketId, UUID technicianId, OAuth2User principal) {
+                User currentUser = resolveUser(principal);
+                if (!isDomainAdminOrSuper(currentUser)) {
+                        throw new UnauthorizedActionException(
+                                        "Only Domain Admin or Super Admin can assign technicians");
+                }
+
+                Ticket ticket = findTicket(ticketId);
+                User technician = userRepository.findById(technicianId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Technician not found: " + technicianId));
+
+                if (technician.role() != UserRole.TECHNICIAN) {
+                        throw new IllegalArgumentException("User is not a TECHNICIAN");
+                }
+
+                Ticket updated = new Ticket(
+                                ticket.id(), ticket.createdBy(), ticket.domainId(), ticket.resourceId(),
+                                ticket.location(), ticket.category(), ticket.description(), ticket.priority(),
+                                ticket.preferredContact(), ticket.status(), ticket.rejectionReason(),
+                                technicianId, ticket.resolutionNotes(), ticket.linkedTicketId(),
                                 ticket.linkedReportersCount(), ticket.createdAt(), null);
                 return buildResponse(ticketRepository.save(updated));
         }
@@ -197,7 +226,7 @@ public class TicketService {
                 return buildResponse(ticketRepository.save(updated));
         }
 
-        // HELPER METHODS
+        // HELPERS
 
         private void validateStatusTransition(TicketStatus current, TicketStatus next, User actor) {
                 // Technicians can move OPEN→IN_PROGRESS→RESOLVED
@@ -247,6 +276,10 @@ public class TicketService {
                 return user.role() == UserRole.SUPER_ADMIN || user.role() == UserRole.DOMAIN_ADMIN;
         }
 
+        private boolean isDomainAdminOrSuper(User user) {
+                return user.role() == UserRole.SUPER_ADMIN || user.role() == UserRole.DOMAIN_ADMIN;
+        }
+
         TicketResponse buildResponse(Ticket t) {
                 String createdByName = userRepository.findById(t.createdBy())
                                 .map(User::fullName).orElse("Unknown");
@@ -271,5 +304,4 @@ public class TicketService {
                 return new AttachmentResponse(a.id(), a.ticketId(), a.filename(),
                                 a.contentType(), a.publicUrl(), a.fileSize(), a.createdAt());
         }
-
 }
