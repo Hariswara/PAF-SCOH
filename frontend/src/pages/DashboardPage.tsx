@@ -127,6 +127,9 @@ const DashboardPage: React.FC = () => {
               <p className="text-xs font-bold text-primary">{user?.fullName}</p>
               <p className="text-[10px] text-muted-foreground">{user?.role?.replace('_', ' ')}</p>
             </div>
+            <Link to="/profile" className="text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors">
+              Profile
+            </Link>
             <Button variant="outline" size="sm" onClick={logout} className="h-8 rounded-none border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-all text-[10px] uppercase font-bold tracking-widest">
               Sign Out
             </Button>

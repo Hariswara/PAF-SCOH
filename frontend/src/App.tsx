@@ -13,6 +13,7 @@ import AuditLogPage from '@/pages/admin/AuditLogPage';
 import BookingsPage from '@/pages/BookingsPage';
 import ResourcesPage from '@/pages/ResourcesPage';
 import TicketsPage from '@/pages/TicketsPage';
+import ProfilePage from '@/pages/ProfilePage';
 
 function App() {
   return (
@@ -84,6 +85,16 @@ function App() {
                 <TicketsPage />
               </AuthGuard>
             } 
+          />
+
+          {/* Profile & Settings */}
+          <Route
+            path="/profile"
+            element={
+              <AuthGuard>
+                <ProfilePage />
+              </AuthGuard>
+            }
           />
 
           {/* Admin Specific Routes */}

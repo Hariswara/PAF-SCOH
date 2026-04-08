@@ -1,9 +1,35 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+import { usePasskeyAuthentication } from '@/hooks/usePasskey';
 
 const LoginPage: React.FC = () => {
+  const { checkAuth } = useAuth();
+  const { authenticate } = usePasskeyAuthentication();
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [passkeyError, setPasskeyError] = useState<string | null>(null);
+
   const handleGoogleLogin = () => {
     window.location.href = '/oauth2/authorization/google';
+  };
+
+  const handlePasskeyLogin = async () => {
+    setPasskeyError(null);
+    setPasskeyLoading(true);
+    try {
+      await authenticate();
+      await checkAuth();
+      // GuestGuard will handle redirect based on user status
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
+      if (message.includes('cancel') || message.includes('abort')) {
+        setPasskeyError('Sign-in cancelled.');
+      } else {
+        setPasskeyError('No passkey found for this device. Sign in with Google first.');
+      }
+    } finally {
+      setPasskeyLoading(false);
+    }
   };
 
   return (
@@ -17,7 +43,7 @@ const LoginPage: React.FC = () => {
       <div className="w-full max-w-lg relative z-10">
         {/* Card */}
         <div className="bg-card border border-border shadow-2xl shadow-primary/5 rounded-none p-10 sm:p-14 flex flex-col items-center text-center relative overflow-hidden">
-          
+
           {/* Subtle top accent line */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-secondary to-transparent"></div>
 
@@ -32,8 +58,9 @@ const LoginPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="w-full space-y-6">
-            <Button 
+          <div className="w-full space-y-3">
+            {/* Google Sign-In */}
+            <Button
               onClick={handleGoogleLogin}
               className="w-full h-14 text-base font-medium flex items-center justify-center gap-3 bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300 rounded-sm group relative overflow-hidden"
             >
@@ -46,7 +73,32 @@ const LoginPage: React.FC = () => {
               </svg>
               <span className="relative z-10">Sign in with University Google</span>
             </Button>
-            
+
+            {/* Divider */}
+            <div className="flex items-center gap-3 py-1">
+              <div className="flex-1 h-px bg-border"></div>
+              <span className="text-xs text-muted-foreground/50 font-light">or</span>
+              <div className="flex-1 h-px bg-border"></div>
+            </div>
+
+            {/* Passkey Sign-In */}
+            <Button
+              onClick={handlePasskeyLogin}
+              disabled={passkeyLoading}
+              variant="outline"
+              className="w-full h-12 text-sm font-medium flex items-center justify-center gap-2 border-border/60 hover:border-border hover:bg-accent/40 transition-all duration-200 rounded-sm"
+            >
+              <svg className="w-4 h-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 10v4M8 14h8M6 20h12a2 2 0 0 0 2-2V8l-6-6H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2z" />
+                <circle cx="12" cy="8" r="2" />
+              </svg>
+              {passkeyLoading ? 'Authenticating…' : 'Sign in with Passkey'}
+            </Button>
+
+            {passkeyError && (
+              <p className="text-xs text-destructive text-center pt-1">{passkeyError}</p>
+            )}
+
             <div className="pt-4 border-t border-border flex items-center justify-center">
                <p className="text-xs text-muted-foreground font-light">
                  Requires authorized institutional credentials.
