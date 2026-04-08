@@ -27,6 +27,7 @@ public class TicketService {
         private final TicketCommentRepository commentRepository;
         private final UserRepository userRepository;
         private final CloudinaryService cloudinaryService;
+        private final AuthService authService;
 
         public TicketService(TicketRepository ticketRepository,
                         TicketAttachmentRepository attachmentRepository,
@@ -39,6 +40,7 @@ public class TicketService {
                 this.commentRepository = commentRepository;
                 this.userRepository = userRepository;
                 this.cloudinaryService = cloudinaryService;
+                this.authService = authService;
         }
 
         // CREATE TICKET
@@ -153,7 +155,137 @@ public class TicketService {
                                 .toList();
         }
 
-        // HELPER METHODS
+        // WORKFLOW
+
+        public TicketResponse updateStatus(UUID ticketId, UpdateTicketStatusRequest request, OAuth2User principal) {
+                User currentUser = resolveUser(principal);
+                Ticket ticket = findTicket(ticketId);
+
+                validateStatusTransition(ticket.status(), request.status(), currentUser);
+
+                String rejectionReason = ticket.rejectionReason();
+                if (request.status() == TicketStatus.REJECTED) {
+                        if (request.rejectionReason() == null || request.rejectionReason().isBlank()) {
+                                throw new IllegalArgumentException("A rejection reason is required");
+                        }
+                        rejectionReason = request.rejectionReason();
+                }
+
+                Ticket updated = new Ticket(
+                                ticket.id(), ticket.createdBy(), ticket.domainId(), ticket.resourceId(),
+                                ticket.location(), ticket.category(), ticket.description(), ticket.priority(),
+                                ticket.preferredContact(), request.status(), rejectionReason,
+                                ticket.assignedTo(), ticket.resolutionNotes(), ticket.linkedTicketId(),
+                                ticket.linkedReportersCount(), ticket.createdAt(), null);
+                return buildResponse(ticketRepository.save(updated));
+        }
+
+        public TicketResponse assignTechnician(UUID ticketId, UUID technicianId, OAuth2User principal) {
+                User currentUser = resolveUser(principal);
+                if (!isDomainAdminOrSuper(currentUser)) {
+                        throw new UnauthorizedActionException(
+                                        "Only Domain Admin or Super Admin can assign technicians");
+                }
+
+                Ticket ticket = findTicket(ticketId);
+                User technician = userRepository.findById(technicianId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Technician not found: " + technicianId));
+
+                if (technician.role() != UserRole.TECHNICIAN) {
+                        throw new IllegalArgumentException("User is not a TECHNICIAN");
+                }
+
+                Ticket updated = new Ticket(
+                                ticket.id(), ticket.createdBy(), ticket.domainId(), ticket.resourceId(),
+                                ticket.location(), ticket.category(), ticket.description(), ticket.priority(),
+                                ticket.preferredContact(), ticket.status(), ticket.rejectionReason(),
+                                technicianId, ticket.resolutionNotes(), ticket.linkedTicketId(),
+                                ticket.linkedReportersCount(), ticket.createdAt(), null);
+                return buildResponse(ticketRepository.save(updated));
+        }
+
+        public TicketResponse addResolutionNotes(UUID ticketId, ResolutionNotesRequest request, OAuth2User principal) {
+                User currentUser = resolveUser(principal);
+                Ticket ticket = findTicket(ticketId);
+
+                boolean isTechnicianOnTicket = currentUser.role() == UserRole.TECHNICIAN
+                                && currentUser.id().equals(ticket.assignedTo());
+
+                if (!isTechnicianOnTicket && !isAdmin(currentUser)) {
+                        throw new UnauthorizedActionException(
+                                        "Only the assigned technician or admin can add resolution notes");
+                }
+
+                Ticket updated = new Ticket(
+                                ticket.id(), ticket.createdBy(), ticket.domainId(), ticket.resourceId(),
+                                ticket.location(), ticket.category(), ticket.description(), ticket.priority(),
+                                ticket.preferredContact(), ticket.status(), ticket.rejectionReason(),
+                                ticket.assignedTo(), request.resolutionNotes(), ticket.linkedTicketId(),
+                                ticket.linkedReportersCount(), ticket.createdAt(), null);
+                return buildResponse(ticketRepository.save(updated));
+        }
+
+        @Transactional(readOnly = true)
+        public List<AttachmentResponse> getAttachments(UUID ticketId) {
+                findTicket(ticketId); // validate ticket exists
+                return attachmentRepository.findByTicketId(ticketId).stream()
+                                .map(this::toAttachmentResponse)
+                                .toList();
+        }
+
+        public void deleteAttachment(UUID ticketId, UUID attachmentId, OAuth2User principal) throws IOException {
+                User currentUser = resolveUser(principal);
+                TicketAttachment attachment = attachmentRepository.findById(attachmentId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Attachment not found: " + attachmentId));
+
+                if (!attachment.ticketId().equals(ticketId)) {
+                        throw new ResourceNotFoundException("Attachment does not belong to this ticket");
+                }
+                if (!attachment.uploadedBy().equals(currentUser.id()) && !isAdmin(currentUser)) {
+                        throw new UnauthorizedActionException("You can only delete your own attachments");
+                }
+
+                cloudinaryService.delete(attachment.storagePath());
+                attachmentRepository.deleteById(attachmentId);
+        }
+
+        // HELPERS
+
+        private void validateStatusTransition(TicketStatus current, TicketStatus next, User actor) {
+                // Technicians can move OPEN→IN_PROGRESS→RESOLVED
+                // Admins can do all transitions including REJECTED and CLOSED
+                boolean isAdmin = isAdmin(actor);
+                boolean isTechnician = actor.role() == UserRole.TECHNICIAN;
+
+                switch (next) {
+                        case IN_PROGRESS -> {
+                                if (current != TicketStatus.OPEN)
+                                        throw new IllegalStateException("Ticket must be OPEN to move to IN_PROGRESS");
+                        }
+                        case RESOLVED -> {
+                                if (current != TicketStatus.IN_PROGRESS)
+                                        throw new IllegalStateException(
+                                                        "Ticket must be IN_PROGRESS to move to RESOLVED");
+                                if (!isTechnician && !isAdmin)
+                                        throw new UnauthorizedActionException(
+                                                        "Only assigned technician or admin can resolve tickets");
+                        }
+                        case CLOSED -> {
+                                if (current != TicketStatus.RESOLVED)
+                                        throw new IllegalStateException("Ticket must be RESOLVED before CLOSED");
+                                if (!isAdmin)
+                                        throw new UnauthorizedActionException("Only admin can close tickets");
+                        }
+                        case REJECTED -> {
+                                if (!isAdmin)
+                                        throw new UnauthorizedActionException("Only admin can reject tickets");
+                        }
+                        default -> throw new IllegalStateException("Invalid target status: " + next);
+                }
+        }
+
         private Ticket findTicket(UUID id) {
                 return ticketRepository.findById(id)
                                 .orElseThrow(() -> new ResourceNotFoundException("Ticket not found: " + id));
@@ -166,6 +298,10 @@ public class TicketService {
         }
 
         private boolean isAdmin(User user) {
+                return user.role() == UserRole.SUPER_ADMIN || user.role() == UserRole.DOMAIN_ADMIN;
+        }
+
+        private boolean isDomainAdminOrSuper(User user) {
                 return user.role() == UserRole.SUPER_ADMIN || user.role() == UserRole.DOMAIN_ADMIN;
         }
 
@@ -193,5 +329,4 @@ public class TicketService {
                 return new AttachmentResponse(a.id(), a.ticketId(), a.filename(),
                                 a.contentType(), a.publicUrl(), a.fileSize(), a.createdAt());
         }
-
 }
