@@ -41,3 +41,19 @@ CREATE TABLE IF NOT EXISTS user_role_audit (
     reason TEXT,
     changed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS bookings (
+    id BIGSERIAL PRIMARY KEY,
+    resource_id BIGINT NOT NULL,
+    date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    purpose VARCHAR(255) NOT NULL,
+    expected_attendees INTEGER,
+    status VARCHAR(50) NOT NULL,
+    created_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP,
+    reviewed_by VARCHAR(255),
+    reviewed_at TIMESTAMP
+);
