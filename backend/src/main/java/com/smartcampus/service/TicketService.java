@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.*;
 
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.smartcampus.dto.AttachmentResponse;
@@ -129,6 +130,14 @@ public class TicketService {
                 return toAttachmentResponse(saved);
         }
 
+        // READ
+
+        @Transactional(readOnly = true)
+        public TicketResponse getTicket(UUID id) {
+                return buildResponse(findTicket(id));
+        }
+
+        // HELPER METHODS
         private Ticket findTicket(UUID id) {
                 return ticketRepository.findById(id)
                                 .orElseThrow(() -> new ResourceNotFoundException("Ticket not found: " + id));
