@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS domains (
 -- Users Table
 CREATE TABLE IF NOT EXISTS users (
     id UUID DEFAULT random_uuid() PRIMARY KEY,
-    google_id VARCHAR(255) UNIQUE NOT NULL,
+    google_id VARCHAR(255) UNIQUE,
     email VARCHAR(255) UNIQUE NOT NULL,
     full_name VARCHAR(255) NOT NULL,
     student_id VARCHAR(50) UNIQUE,
@@ -27,6 +27,32 @@ CREATE TABLE IF NOT EXISTS users (
     last_login_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Passkey Credentials Table
+CREATE TABLE IF NOT EXISTS passkey_credentials (
+    id UUID DEFAULT random_uuid() PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    credential_id BINARY(512) NOT NULL UNIQUE,
+    credential_id_base64 VARCHAR(512) NOT NULL UNIQUE,
+    public_key_cose BINARY(2048) NOT NULL,
+    signature_count BIGINT NOT NULL DEFAULT 0,
+    display_name VARCHAR(255),
+    aaguid UUID,
+    transports VARCHAR(500),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_used_at TIMESTAMP
+);
+
+-- WebAuthn Challenge Nonces Table
+CREATE TABLE IF NOT EXISTS webauthn_challenges (
+    challenge_id UUID DEFAULT random_uuid() PRIMARY KEY,
+    challenge VARCHAR(512) NOT NULL UNIQUE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    challenge_type VARCHAR(20) NOT NULL,
+    request_json CLOB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL
 );
 
 -- User Role Audit Table

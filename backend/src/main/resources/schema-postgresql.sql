@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS domains (
 -- Users Table
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    google_id VARCHAR(255) UNIQUE NOT NULL,
+    google_id VARCHAR(255) UNIQUE,
     email VARCHAR(255) UNIQUE NOT NULL,
     full_name VARCHAR(255) NOT NULL,
     student_id VARCHAR(50) UNIQUE,
@@ -28,6 +28,38 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Passkey Credentials Table
+CREATE TABLE IF NOT EXISTS passkey_credentials (
+    id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id              UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    credential_id        BYTEA NOT NULL UNIQUE,
+    credential_id_base64 TEXT NOT NULL UNIQUE,
+    public_key_cose      BYTEA NOT NULL,
+    signature_count      BIGINT NOT NULL DEFAULT 0,
+    display_name         VARCHAR(255),
+    aaguid               UUID,
+    transports           VARCHAR(500),
+    created_at           TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_used_at         TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_passkey_cred_user ON passkey_credentials(user_id);
+CREATE INDEX IF NOT EXISTS idx_passkey_cred_id   ON passkey_credentials(credential_id_base64);
+
+-- WebAuthn Challenge Nonces Table
+CREATE TABLE IF NOT EXISTS webauthn_challenges (
+    challenge_id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    challenge      TEXT NOT NULL UNIQUE,
+    user_id        UUID REFERENCES users(id) ON DELETE CASCADE,
+    challenge_type VARCHAR(20) NOT NULL,
+    request_json   TEXT,
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    expires_at     TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_webauthn_challenge     ON webauthn_challenges(challenge);
+CREATE INDEX IF NOT EXISTS idx_webauthn_challenge_exp ON webauthn_challenges(expires_at);
 
 -- User Role Audit Table
 CREATE TABLE IF NOT EXISTS user_role_audit (
