@@ -17,6 +17,7 @@ import java.util.*;
 @Service
 @Transactional
 public class TicketService {
+        private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TicketService.class);
 
         private static final int MAX_ATTACHMENTS = 3;
         private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
@@ -28,19 +29,22 @@ public class TicketService {
         private final UserRepository userRepository;
         private final CloudinaryService cloudinaryService;
         private final AuthService authService;
+        private final DuplicateDetectionService detectionService;
 
         public TicketService(TicketRepository ticketRepository,
                         TicketAttachmentRepository attachmentRepository,
                         TicketCommentRepository commentRepository,
                         UserRepository userRepository,
                         CloudinaryService cloudinaryService,
-                        AuthService authService) {
+                        AuthService authService,
+                        DuplicateDetectionService detectionService) {
                 this.ticketRepository = ticketRepository;
                 this.attachmentRepository = attachmentRepository;
                 this.commentRepository = commentRepository;
                 this.userRepository = userRepository;
                 this.cloudinaryService = cloudinaryService;
                 this.authService = authService;
+                this.detectionService = detectionService;
         }
 
         // CREATE TICKET
@@ -67,6 +71,12 @@ public class TicketService {
                                 null,
                                 null);
                 Ticket saved = ticketRepository.save(ticket);
+
+                try {
+                        detectionService.indexTicket(saved);
+                } catch (IOException e) {
+                        log.warn("Lucene index update failed for ticket {}: {}", saved.id(), e.getMessage());
+                }
 
                 // If user chose to link to existing ticket, increment that ticket's reporter
                 // count
@@ -177,7 +187,21 @@ public class TicketService {
                                 ticket.preferredContact(), request.status(), rejectionReason,
                                 ticket.assignedTo(), ticket.resolutionNotes(), ticket.linkedTicketId(),
                                 ticket.linkedReportersCount(), ticket.createdAt(), null);
-                return buildResponse(ticketRepository.save(updated));
+
+                Ticket saved = ticketRepository.save(updated);
+
+                // Remove from index if ticket is finalized
+                if (request.status() == TicketStatus.RESOLVED
+                                || request.status() == TicketStatus.CLOSED
+                                || request.status() == TicketStatus.REJECTED) {
+                        try {
+                                detectionService.removeFromIndex(ticketId.toString());
+                        } catch (IOException e) {
+                                log.warn("Lucene remove failed: {}", e.getMessage());
+                        }
+                }
+
+                return buildResponse(saved);
         }
 
         public TicketResponse assignTechnician(UUID ticketId, UUID technicianId, OAuth2User principal) {
