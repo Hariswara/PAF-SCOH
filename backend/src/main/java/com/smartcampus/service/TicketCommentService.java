@@ -12,6 +12,7 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -38,6 +39,14 @@ public class TicketCommentService {
         TicketComment comment = new TicketComment(
                 null, ticketId, currentUser.id(), request.body(), false, null, null);
         return toResponse(commentRepository.save(comment));
+    }
+
+    @Transactional(readOnly = true)
+    public List<CommentResponse> getComments(UUID ticketId) {
+        ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found: " + ticketId));
+        return commentRepository.findByTicketIdOrderByCreatedAtAsc(ticketId)
+                .stream().map(this::toResponse).toList();
     }
 
     private User resolveUser(OAuth2User principal) {
