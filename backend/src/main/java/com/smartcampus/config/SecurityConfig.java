@@ -35,12 +35,14 @@ public class SecurityConfig {
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(requestHandler)
                 .ignoringRequestMatchers("/api/auth/logout")
+                .ignoringRequestMatchers("/api/auth/passkey/login/**")
             )
             .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
             .addFilterAfter(new UserStatusFilter(userRepository), CsrfCookieFilter.class)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/", "/index.html", "/static/**", "/*.png", "/*.ico", "/*.json").permitAll()
                 .requestMatchers("/api/auth/status").permitAll()
+                .requestMatchers("/api/auth/passkey/login/**").permitAll()
                 .requestMatchers("/api/auth/register/**").hasAuthority("STATUS_PENDING_PROFILE")
                 
                 // Domain management - Write actions are SUPER_ADMIN only

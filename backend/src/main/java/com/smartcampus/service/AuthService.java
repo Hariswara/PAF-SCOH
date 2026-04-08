@@ -6,6 +6,7 @@ import com.smartcampus.model.User;
 import com.smartcampus.model.UserRole;
 import com.smartcampus.model.UserStatus;
 import com.smartcampus.repository.UserRepository;
+import com.smartcampus.security.PasskeyAuthenticatedPrincipal;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -25,9 +26,13 @@ public class AuthService {
 
     public User getCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof OAuth2User principal) {
+        if (auth == null) return null;
+        if (auth.getPrincipal() instanceof OAuth2User principal) {
             String email = principal.getAttribute("email");
             return userRepository.findByEmail(email).orElse(null);
+        }
+        if (auth.getPrincipal() instanceof PasskeyAuthenticatedPrincipal principal) {
+            return userRepository.findById(principal.userId()).orElse(null);
         }
         return null;
     }
