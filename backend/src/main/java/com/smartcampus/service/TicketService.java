@@ -153,7 +153,64 @@ public class TicketService {
                                 .toList();
         }
 
+        public TicketResponse updateStatus(UUID ticketId, UpdateTicketStatusRequest request, OAuth2User principal) {
+                User currentUser = resolveUser(principal);
+                Ticket ticket = findTicket(ticketId);
+
+                validateStatusTransition(ticket.status(), request.status(), currentUser);
+
+                String rejectionReason = ticket.rejectionReason();
+                if (request.status() == TicketStatus.REJECTED) {
+                        if (request.rejectionReason() == null || request.rejectionReason().isBlank()) {
+                                throw new IllegalArgumentException("A rejection reason is required");
+                        }
+                        rejectionReason = request.rejectionReason();
+                }
+
+                Ticket updated = new Ticket(
+                                ticket.id(), ticket.createdBy(), ticket.domainId(), ticket.resourceId(),
+                                ticket.location(), ticket.category(), ticket.description(), ticket.priority(),
+                                ticket.preferredContact(), request.status(), rejectionReason,
+                                ticket.assignedTo(), ticket.resolutionNotes(), ticket.linkedTicketId(),
+                                ticket.linkedReportersCount(), ticket.createdAt(), null);
+                return buildResponse(ticketRepository.save(updated));
+        }
+
         // HELPER METHODS
+
+        private void validateStatusTransition(TicketStatus current, TicketStatus next, User actor) {
+                // Technicians can move OPEN→IN_PROGRESS→RESOLVED
+                // Admins can do all transitions including REJECTED and CLOSED
+                boolean isAdmin = isAdmin(actor);
+                boolean isTechnician = actor.role() == UserRole.TECHNICIAN;
+
+                switch (next) {
+                        case IN_PROGRESS -> {
+                                if (current != TicketStatus.OPEN)
+                                        throw new IllegalStateException("Ticket must be OPEN to move to IN_PROGRESS");
+                        }
+                        case RESOLVED -> {
+                                if (current != TicketStatus.IN_PROGRESS)
+                                        throw new IllegalStateException(
+                                                        "Ticket must be IN_PROGRESS to move to RESOLVED");
+                                if (!isTechnician && !isAdmin)
+                                        throw new UnauthorizedActionException(
+                                                        "Only assigned technician or admin can resolve tickets");
+                        }
+                        case CLOSED -> {
+                                if (current != TicketStatus.RESOLVED)
+                                        throw new IllegalStateException("Ticket must be RESOLVED before CLOSED");
+                                if (!isAdmin)
+                                        throw new UnauthorizedActionException("Only admin can close tickets");
+                        }
+                        case REJECTED -> {
+                                if (!isAdmin)
+                                        throw new UnauthorizedActionException("Only admin can reject tickets");
+                        }
+                        default -> throw new IllegalStateException("Invalid target status: " + next);
+                }
+        }
+
         private Ticket findTicket(UUID id) {
                 return ticketRepository.findById(id)
                                 .orElseThrow(() -> new ResourceNotFoundException("Ticket not found: " + id));
