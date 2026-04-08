@@ -2,21 +2,29 @@ package com.smartcampus.config;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@ConfigurationProperties(prefix = "cloudinary")
 public class CloudinaryConfig {
 
-    @Value("${CLOUDINARY_CLOUD_NAME}")
     private String cloudName;
-
-    @Value("${CLOUDINARY_API_KEY}")
     private String apiKey;
-
-    @Value("${CLOUDINARY_API_SECRET}")
     private String apiSecret;
+
+    public void setCloudName(String cloudName) {
+        this.cloudName = cloudName;
+    }
+
+    public void setApiKey(String apiKey) {
+        this.apiKey = apiKey;
+    }
+
+    public void setApiSecret(String apiSecret) {
+        this.apiSecret = apiSecret;
+    }
 
     @Bean
     public Cloudinary cloudinary() {
@@ -26,5 +34,4 @@ public class CloudinaryConfig {
                 "api_secret", apiSecret,
                 "secure", true));
     }
-
 }
