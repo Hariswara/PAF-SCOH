@@ -35,9 +35,11 @@ const DashboardPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 border rounded-lg bg-blue-50 text-blue-700 font-medium text-center">
-            Resources (Module A)
-          </div>
+          <Link to="/resources">
+            <div className="p-4 border rounded-lg bg-blue-50 text-blue-700 font-medium text-center hover:bg-blue-100 cursor-pointer transition-colors">
+              Resources (Module A)
+            </div>
+          </Link>
           <div className="p-4 border rounded-lg bg-green-50 text-green-700 font-medium text-center">
             Bookings (Module B)
           </div>

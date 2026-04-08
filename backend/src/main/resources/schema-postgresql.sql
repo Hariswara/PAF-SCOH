@@ -41,3 +41,18 @@ CREATE TABLE IF NOT EXISTS user_role_audit (
     reason TEXT,
     changed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+
+-- Resources Table (Module A - Facilities & Assets Catalogue)
+CREATE TABLE IF NOT EXISTS resources (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL UNIQUE,
+    type VARCHAR(50) NOT NULL,          -- LECTURE_HALL, LAB, MEETING_ROOM, EQUIPMENT
+    capacity INTEGER,
+    location VARCHAR(255) NOT NULL,
+    availability_windows VARCHAR(255),
+    status VARCHAR(50) NOT NULL,        -- ACTIVE, OUT_OF_SERVICE
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
