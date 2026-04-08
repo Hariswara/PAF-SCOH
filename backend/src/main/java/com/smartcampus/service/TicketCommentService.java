@@ -3,6 +3,7 @@ package com.smartcampus.service;
 import com.smartcampus.dto.CommentResponse;
 import com.smartcampus.dto.CreateCommentRequest;
 import com.smartcampus.exception.ResourceNotFoundException;
+import com.smartcampus.exception.UnauthorizedActionException;
 import com.smartcampus.model.TicketComment;
 import com.smartcampus.model.User;
 import com.smartcampus.repository.TicketCommentRepository;
@@ -47,6 +48,30 @@ public class TicketCommentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket not found: " + ticketId));
         return commentRepository.findByTicketIdOrderByCreatedAtAsc(ticketId)
                 .stream().map(this::toResponse).toList();
+    }
+
+    public CommentResponse editComment(UUID ticketId, UUID commentId,
+            CreateCommentRequest request, OAuth2User principal) {
+        User currentUser = resolveUser(principal);
+        TicketComment existing = findComment(ticketId, commentId);
+
+        if (!existing.authorId().equals(currentUser.id())) {
+            throw new UnauthorizedActionException("You can only edit your own comments");
+        }
+
+        TicketComment updated = new TicketComment(
+                existing.id(), existing.ticketId(), existing.authorId(),
+                request.body(), true, existing.createdAt(), null);
+        return toResponse(commentRepository.save(updated));
+    }
+
+    private TicketComment findComment(UUID ticketId, UUID commentId) {
+        TicketComment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Comment not found: " + commentId));
+        if (!comment.ticketId().equals(ticketId)) {
+            throw new ResourceNotFoundException("Comment does not belong to this ticket");
+        }
+        return comment;
     }
 
     private User resolveUser(OAuth2User principal) {
