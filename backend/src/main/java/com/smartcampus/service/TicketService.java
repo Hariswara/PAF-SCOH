@@ -1,28 +1,21 @@
 package com.smartcampus.service;
 
-import java.io.IOException;
-import java.util.*;
-
-import org.springframework.security.oauth2.core.user.OAuth2User;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-
-import com.smartcampus.dto.AttachmentResponse;
-import com.smartcampus.dto.CreateTicketRequest;
-import com.smartcampus.dto.TicketResponse;
+import com.smartcampus.dto.*;
 import com.smartcampus.exception.ResourceNotFoundException;
 import com.smartcampus.exception.TicketAttachmentLimitException;
 import com.smartcampus.exception.UnauthorizedActionException;
-import com.smartcampus.model.Ticket;
-import com.smartcampus.model.TicketAttachment;
-import com.smartcampus.model.TicketStatus;
-import com.smartcampus.model.User;
-import com.smartcampus.model.UserRole;
-import com.smartcampus.repository.TicketAttachmentRepository;
-import com.smartcampus.repository.TicketCommentRepository;
-import com.smartcampus.repository.TicketRepository;
-import com.smartcampus.repository.UserRepository;
+import com.smartcampus.model.*;
+import com.smartcampus.repository.*;
+import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.util.*;
+
+@Service
+@Transactional
 public class TicketService {
 
         private static final int MAX_ATTACHMENTS = 3;

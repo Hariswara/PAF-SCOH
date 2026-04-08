@@ -1,24 +1,16 @@
 package com.smartcampus.controller;
 
-import java.util.List;
-import java.util.UUID;
-
+import com.smartcampus.dto.*;
+import com.smartcampus.service.TicketService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import com.smartcampus.dto.CreateTicketRequest;
-import com.smartcampus.dto.TicketResponse;
-import com.smartcampus.service.TicketService;
-
-import jakarta.validation.Valid;
+import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/tickets")
