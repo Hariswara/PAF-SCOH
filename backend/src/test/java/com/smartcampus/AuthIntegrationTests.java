@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -72,16 +73,19 @@ class AuthIntegrationTests {
                 null, UserStatus.PENDING_PROFILE, null, null, null, null
         ));
 
-        // Can access registration
+        // Can access registration endpoint — security allows STATUS_PENDING_PROFILE,
+        // so we get 400 (validation) rather than 403 (forbidden)
         mockMvc.perform(post("/api/auth/register/student")
-                .with(csrf()) // Add CSRF token for POST
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content("{}")
+                .with(csrf())
                 .with(oauth2Login()
                         .authorities(new SimpleGrantedAuthority("STATUS_PENDING_PROFILE"))
                         .attributes(attrs -> {
                             attrs.put("sub", "google-pending");
                             attrs.put("email", "pending@example.com");
                         })))
-                .andExpect(status().isOk());
+                .andExpect(status().isBadRequest());
 
         // Cannot access greet
         mockMvc.perform(get("/api/greet")
@@ -108,6 +112,59 @@ class AuthIntegrationTests {
                         .attributes(attrs -> {
                             attrs.put("sub", "google-active");
                             attrs.put("email", "active@example.com");
+                        })))
+                .andExpect(status().isOk());
+    }
+
+    // ─── Passkey endpoint security tests ──────────────────────────────────────
+
+    @Test
+    void passkeyLoginStartShouldBePermittedWithoutAuth() throws Exception {
+        // Login start must be accessible without a session (unauthenticated user)
+        mockMvc.perform(post("/api/auth/passkey/login/start")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void passkeyRegisterStartShouldReturn403ForPendingProfileUser() throws Exception {
+        // A user with PENDING_PROFILE status must not access passkey registration
+        userRepository.save(new User(
+                null, "google-pending2", "passkey-pending@example.com", "Pending Passkey User",
+                null, null, null, null,
+                null, UserStatus.PENDING_PROFILE, null, null, null, null
+        ));
+
+        mockMvc.perform(post("/api/auth/passkey/register/start")
+                .with(csrf())
+                .with(oauth2Login()
+                        .authorities(new SimpleGrantedAuthority("STATUS_PENDING_PROFILE"))
+                        .attributes(attrs -> {
+                            attrs.put("sub", "google-pending2");
+                            attrs.put("email", "passkey-pending@example.com");
+                        }))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void passkeyCredentialsListShouldReturn200ForActiveUser() throws Exception {
+        userRepository.save(new User(
+                null, "google-passkey-active", "passkey-active@example.com", "Passkey Active User",
+                null, null, null, null,
+                UserRole.STUDENT, UserStatus.ACTIVE, null, null, null, null
+        ));
+
+        mockMvc.perform(get("/api/auth/passkey/credentials")
+                .with(oauth2Login()
+                        .authorities(
+                                new SimpleGrantedAuthority("ROLE_STUDENT"),
+                                new SimpleGrantedAuthority("STATUS_ACTIVE"))
+                        .attributes(attrs -> {
+                            attrs.put("sub", "google-passkey-active");
+                            attrs.put("email", "passkey-active@example.com");
                         })))
                 .andExpect(status().isOk());
     }
