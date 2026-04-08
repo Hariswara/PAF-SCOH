@@ -137,6 +137,29 @@ public class TicketService {
                 return buildResponse(findTicket(id));
         }
 
+        @Transactional(readOnly = true)
+        public List<TicketResponse> getAllTickets() {
+                return ticketRepository.findAllByOrderByCreatedAtDesc().stream()
+                                .map(this::buildResponse)
+                                .toList();
+        }
+
+        @Transactional(readOnly = true)
+        public List<TicketResponse> getMyTickets(OAuth2User principal) {
+                User currentUser = resolveUser(principal);
+                return ticketRepository.findByCreatedByOrderByCreatedAtDesc(currentUser.id()).stream()
+                                .map(this::buildResponse)
+                                .toList();
+        }
+
+        @Transactional(readOnly = true)
+        public List<TicketResponse> getAssignedTickets(OAuth2User principal) {
+                User currentUser = resolveUser(principal);
+                return ticketRepository.findByAssignedToOrderByCreatedAtDesc(currentUser.id()).stream()
+                                .map(this::buildResponse)
+                                .toList();
+        }
+
         // HELPER METHODS
         private Ticket findTicket(UUID id) {
                 return ticketRepository.findById(id)
