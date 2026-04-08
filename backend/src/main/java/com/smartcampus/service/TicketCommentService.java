@@ -6,6 +6,7 @@ import com.smartcampus.exception.ResourceNotFoundException;
 import com.smartcampus.exception.UnauthorizedActionException;
 import com.smartcampus.model.TicketComment;
 import com.smartcampus.model.User;
+import com.smartcampus.model.UserRole;
 import com.smartcampus.repository.TicketCommentRepository;
 import com.smartcampus.repository.TicketRepository;
 import com.smartcampus.repository.UserRepository;
@@ -65,6 +66,20 @@ public class TicketCommentService {
         return toResponse(commentRepository.save(updated));
     }
 
+    public void deleteComment(UUID ticketId, UUID commentId, OAuth2User principal) {
+        User currentUser = resolveUser(principal);
+        TicketComment comment = findComment(ticketId, commentId);
+
+        boolean isOwner = comment.authorId().equals(currentUser.id());
+        boolean isAdmin = currentUser.role() == UserRole.SUPER_ADMIN
+                || currentUser.role() == UserRole.DOMAIN_ADMIN;
+
+        if (!isOwner && !isAdmin) {
+            throw new UnauthorizedActionException("You can only delete your own comments");
+        }
+        commentRepository.deleteById(commentId);
+    }
+
     private TicketComment findComment(UUID ticketId, UUID commentId) {
         TicketComment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Comment not found: " + commentId));
@@ -86,5 +101,4 @@ public class TicketCommentService {
         return new CommentResponse(c.id(), c.ticketId(), c.authorId(), authorName,
                 c.body(), c.edited(), c.createdAt(), c.updatedAt());
     }
-
 }
