@@ -72,8 +72,8 @@ const RegisterPage: React.FC = () => {
     return (
       <div className="flex min-h-screen items-center justify-center p-4 sm:p-8 relative">
         {/* Decorative Grid */}
-        <div className="absolute inset-0 pointer-events-none opacity-20">
-            <div className="h-full w-full" style={{ backgroundImage: 'linear-gradient(#D4AF37 1px, transparent 1px), linear-gradient(90deg, #D4AF37 1px, transparent 1px)', backgroundSize: '60px 60px' }}></div>
+        <div className="absolute inset-0 pointer-events-none opacity-30">
+            <div className="h-full w-full" style={{ backgroundImage: 'radial-gradient(circle, rgba(45,122,58,0.15) 1px, transparent 1px)', backgroundSize: '28px 28px' }}></div>
         </div>
 
         <div className="max-w-3xl w-full relative z-10 flex flex-col items-center">
