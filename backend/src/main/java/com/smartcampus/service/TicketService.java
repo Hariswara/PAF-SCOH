@@ -226,6 +226,31 @@ public class TicketService {
                 return buildResponse(ticketRepository.save(updated));
         }
 
+        @Transactional(readOnly = true)
+        public List<AttachmentResponse> getAttachments(UUID ticketId) {
+                findTicket(ticketId); // validate ticket exists
+                return attachmentRepository.findByTicketId(ticketId).stream()
+                                .map(this::toAttachmentResponse)
+                                .toList();
+        }
+
+        public void deleteAttachment(UUID ticketId, UUID attachmentId, OAuth2User principal) throws IOException {
+                User currentUser = resolveUser(principal);
+                TicketAttachment attachment = attachmentRepository.findById(attachmentId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Attachment not found: " + attachmentId));
+
+                if (!attachment.ticketId().equals(ticketId)) {
+                        throw new ResourceNotFoundException("Attachment does not belong to this ticket");
+                }
+                if (!attachment.uploadedBy().equals(currentUser.id()) && !isAdmin(currentUser)) {
+                        throw new UnauthorizedActionException("You can only delete your own attachments");
+                }
+
+                cloudinaryService.delete(attachment.storagePath());
+                attachmentRepository.deleteById(attachmentId);
+        }
+
         // HELPERS
 
         private void validateStatusTransition(TicketStatus current, TicketStatus next, User actor) {

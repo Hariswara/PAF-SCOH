@@ -8,7 +8,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
@@ -84,6 +86,34 @@ public class TicketController {
             @Valid @RequestBody ResolutionNotesRequest request,
             @AuthenticationPrincipal OAuth2User principal) {
         return ResponseEntity.ok(ticketService.addResolutionNotes(id, request, principal));
+    }
+
+    // Attachments
+
+    /** POST /api/tickets/{id}/attachments */
+    @PostMapping("/{id}/attachments")
+    public ResponseEntity<AttachmentResponse> addAttachment(
+            @PathVariable UUID id,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal OAuth2User principal) throws IOException {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ticketService.addAttachment(id, file, principal));
+    }
+
+    /** GET /api/tickets/{id}/attachments */
+    @GetMapping("/{id}/attachments")
+    public ResponseEntity<List<AttachmentResponse>> getAttachments(@PathVariable UUID id) {
+        return ResponseEntity.ok(ticketService.getAttachments(id));
+    }
+
+    /** DELETE /api/tickets/{id}/attachments/{attachmentId} */
+    @DeleteMapping("/{id}/attachments/{attachmentId}")
+    public ResponseEntity<Void> deleteAttachment(
+            @PathVariable UUID id,
+            @PathVariable UUID attachmentId,
+            @AuthenticationPrincipal OAuth2User principal) throws IOException {
+        ticketService.deleteAttachment(id, attachmentId, principal);
+        return ResponseEntity.noContent().build();
     }
 
 }
