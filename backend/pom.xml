@@ -73,6 +73,13 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- WebAuthn / Passkey support -->
+        <dependency>
+            <groupId>com.yubico</groupId>
+            <artifactId>webauthn-server-core</artifactId>
+            <version>2.5.0</version>
+        </dependency>
+
         <dependency>
             <groupId>com.cloudinary</groupId>
             <artifactId>cloudinary-http45</artifactId>
