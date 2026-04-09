@@ -134,15 +134,17 @@ const DashboardPage: React.FC = () => {
         </div>
       </nav>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-8">
-        <header className="mb-8 border-b border-border pb-6 flex justify-between items-end">
-          <div>
-            <h2 className="text-3xl font-serif text-primary mb-1">
-              {getGreeting()}, {user?.fullName.split(' ')[0]}.
-            </h2>
-            <p className="text-muted-foreground font-light text-sm">
-              Operational overview for today, {format(new Date(), 'EEEE, MMMM do')}.
-            </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Link to="/resources">
+            <div className="p-4 border rounded-lg bg-blue-50 text-blue-700 font-medium text-center hover:bg-blue-100 cursor-pointer transition-colors">
+              Resources (Module A)
+            </div>
+          </Link>
+          <div className="p-4 border rounded-lg bg-green-50 text-green-700 font-medium text-center">
+            Bookings (Module B)
+          </div>
+          <div className="p-4 border rounded-lg bg-purple-50 text-purple-700 font-medium text-center">
+            Tickets (Module C)
           </div>
           {isLoading && stats && (
             <div className="flex items-center gap-2 mb-1">

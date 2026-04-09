@@ -14,6 +14,7 @@ import BookingsPage from '@/pages/BookingsPage';
 import ResourcesPage from '@/pages/ResourcesPage';
 import TicketsPage from '@/pages/TicketsPage';
 
+
 function App() {
   return (
     <AuthProvider>
@@ -86,7 +87,8 @@ function App() {
             } 
           />
 
-          {/* Admin Specific Routes */}
+
+          {/* Admin Routes */}
           <Route 
             path="/admin/users" 
             element={

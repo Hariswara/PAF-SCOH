@@ -1,23 +1,15 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import CreateResourceForm from '@/components/ui/CreateResourceForm';
 
-const ResourcesPage: React.FC = () => {
+export default function ResourcesPage() {
   return (
-    <div className="min-h-screen bg-background p-8 sm:p-12">
-      <div className="max-w-7xl mx-auto">
-        <Link to="/dashboard" className="text-xs font-bold uppercase tracking-widest text-secondary hover:text-primary transition-colors flex items-center mb-8">
-          <span className="mr-2">←</span> Return to Dashboard
-        </Link>
-        <h1 className="text-5xl font-serif text-primary mb-4">Campus Resources</h1>
-        <p className="text-muted-foreground font-light text-lg mb-12 border-b border-border pb-8">
-          Browse and search for available university labs, equipment, and study halls.
+    <div className="min-h-screen bg-gray-50 py-10 px-4">
+      <div className="max-w-xl mx-auto mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Facilities & Assets</h1>
+        <p className="text-gray-500 mt-1">
+          Manage bookable resources across campus
         </p>
-        <div className="bg-card border border-dashed border-border p-20 text-center">
-          <p className="text-muted-foreground italic">Module A: Resource Catalog Interface (Work in Progress)</p>
-        </div>
       </div>
+      <CreateResourceForm />
     </div>
   );
-};
-
-export default ResourcesPage;
+}
