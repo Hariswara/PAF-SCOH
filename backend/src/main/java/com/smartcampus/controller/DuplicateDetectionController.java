@@ -9,6 +9,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * Fix #8 — accepts location and domainId for richer duplicate matching.
+ */
 @RestController
 @RequestMapping("/api/tickets/duplicates")
 public class DuplicateDetectionController {
@@ -19,19 +22,22 @@ public class DuplicateDetectionController {
         this.detectionService = detectionService;
     }
 
-    /** GET /api/tickets/duplicates/check?description=projector+flickering */
     @GetMapping("/check")
     public ResponseEntity<List<DuplicateSuggestion>> checkGet(
             @RequestParam String description,
+            @RequestParam(required = false) String location,
+            @RequestParam(required = false) String domainId,
             @RequestParam(required = false) String excludeTicketId) throws Exception {
-        return ResponseEntity.ok(detectionService.findSimilar(description, excludeTicketId));
+        return ResponseEntity.ok(
+                detectionService.findSimilar(description, location, domainId, excludeTicketId));
     }
 
-    /** POST /api/tickets/duplicates/check */
     @PostMapping("/check")
     public ResponseEntity<List<DuplicateSuggestion>> checkPost(
             @Valid @RequestBody DuplicateCheckRequest request) throws Exception {
         return ResponseEntity.ok(
-                detectionService.findSimilar(request.description(), request.excludeTicketId()));
+                detectionService.findSimilar(
+                        request.description(), request.location(),
+                        request.domainId(), request.excludeTicketId()));
     }
 }
