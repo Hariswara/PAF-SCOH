@@ -258,7 +258,9 @@ public class WebAuthnService {
             // Update last login
             User withLastLogin = new User(
                     user.id(), user.googleId(), user.email(), user.fullName(),
-                    user.studentId(), user.department(), user.phone(), user.profilePicture(),
+                    user.studentId(), user.department(), user.phone(),
+                    user.contactEmail(), user.gender(),
+                    user.profilePicture(),
                     user.role(), user.status(), user.domainId(),
                     Instant.now(), user.createdAt(), null
             );

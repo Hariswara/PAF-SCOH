@@ -2,9 +2,12 @@ package com.smartcampus.service;
 
 import com.smartcampus.dto.NonStudentRegistrationRequest;
 import com.smartcampus.dto.StudentRegistrationRequest;
+import com.smartcampus.dto.UpdateProfileRequest;
+import com.smartcampus.model.Domain;
 import com.smartcampus.model.User;
 import com.smartcampus.model.UserRole;
 import com.smartcampus.model.UserStatus;
+import com.smartcampus.repository.DomainRepository;
 import com.smartcampus.repository.UserRepository;
 import com.smartcampus.security.PasskeyAuthenticatedPrincipal;
 import org.springframework.security.core.Authentication;
@@ -14,14 +17,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Service
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final DomainRepository domainRepository;
 
-    public AuthService(UserRepository userRepository) {
+    public AuthService(UserRepository userRepository, DomainRepository domainRepository) {
         this.userRepository = userRepository;
+        this.domainRepository = domainRepository;
     }
 
     public User getCurrentUser() {
@@ -52,6 +58,8 @@ public class AuthService {
             request.studentId(),
             request.department(),
             request.phone(),
+            user.contactEmail(),
+            user.gender(),
             user.profilePicture(),
             UserRole.STUDENT,
             UserStatus.ACTIVE,
@@ -78,8 +86,10 @@ public class AuthService {
             request.fullName(),
             null, null,
             request.phone(),
+            user.contactEmail(),
+            user.gender(),
             user.profilePicture(),
-            null, // Role remains null until Super Admin assigns it
+            null,
             UserStatus.PENDING_ACTIVATION,
             null,
             Instant.now(),
@@ -88,5 +98,41 @@ public class AuthService {
         );
 
         return userRepository.save(updated);
+    }
+
+    @Transactional
+    public User updateProfile(UpdateProfileRequest request) {
+        User user = getCurrentUser();
+        if (user == null) {
+            throw new IllegalStateException("Not authenticated");
+        }
+
+        User updated = new User(
+            user.id(),
+            user.googleId(),
+            user.email(),
+            request.fullName(),
+            user.studentId(),
+            request.department() != null ? request.department() : user.department(),
+            request.phone(),
+            request.contactEmail(),
+            request.gender(),
+            user.profilePicture(),
+            user.role(),
+            user.status(),
+            user.domainId(),
+            user.lastLoginAt(),
+            user.createdAt(),
+            null
+        );
+
+        return userRepository.save(updated);
+    }
+
+    public String getDomainName(UUID domainId) {
+        if (domainId == null) return null;
+        return domainRepository.findById(domainId)
+                .map(Domain::name)
+                .orElse(null);
     }
 }
