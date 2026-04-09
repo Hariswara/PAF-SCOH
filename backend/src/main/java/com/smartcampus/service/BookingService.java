@@ -1,6 +1,8 @@
 package com.smartcampus.service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 
@@ -26,12 +28,10 @@ public class BookingService {
 
     public BookingResponse createBooking(CreateBookingRequest request) {
 
-        // Validate time
         if (!request.getStartTime().isBefore(request.getEndTime())) {
             throw new IllegalArgumentException("Start time must be before end time");
         }
 
-        // MUST have logged-in user (no fallback)
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) {
             throw new IllegalArgumentException("Authenticated user not found");
@@ -45,23 +45,37 @@ public class BookingService {
         booking.setPurpose(request.getPurpose());
         booking.setExpectedAttendees(request.getExpectedAttendees());
         booking.setStatus(BookingStatus.PENDING);
-
         booking.setCreatedBy(currentUser.email());
         booking.setCreatedAt(LocalDateTime.now());
         booking.setUpdatedAt(LocalDateTime.now());
 
         Booking saved = bookingRepository.save(booking);
+        return mapToBookingResponse(saved);
+    }
 
-        return new BookingResponse(
-                saved.getId(),
-                saved.getResourceId(),
-                saved.getDate(),
-                saved.getStartTime(),
-                saved.getEndTime(),
-                saved.getPurpose(),
-                saved.getExpectedAttendees(),
-                saved.getStatus().name()
-        );
+    public List<BookingResponse> getMyBookings(BookingStatus status, LocalDate date) {
+
+        User currentUser = authService.getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalArgumentException("Authenticated user not found");
+        }
+
+        String userEmail = currentUser.email();
+        List<Booking> bookings;
+
+        if (status != null && date != null) {
+            bookings = bookingRepository.findByCreatedByAndStatusAndDateOrderByCreatedAtDesc(userEmail, status, date);
+        } else if (status != null) {
+            bookings = bookingRepository.findByCreatedByAndStatusOrderByCreatedAtDesc(userEmail, status);
+        } else if (date != null) {
+            bookings = bookingRepository.findByCreatedByAndDateOrderByCreatedAtDesc(userEmail, date);
+        } else {
+            bookings = bookingRepository.findByCreatedByOrderByCreatedAtDesc(userEmail);
+        }
+
+        return bookings.stream()
+                .map(this::mapToBookingResponse)
+                .toList();
     }
 
     public BookingResponse reviewBooking(Long id, ReviewBookingRequest request) {
@@ -94,17 +108,7 @@ public class BookingService {
         booking.setUpdatedAt(LocalDateTime.now());
 
         Booking saved = bookingRepository.save(booking);
-
-        return new BookingResponse(
-                saved.getId(),
-                saved.getResourceId(),
-                saved.getDate(),
-                saved.getStartTime(),
-                saved.getEndTime(),
-                saved.getPurpose(),
-                saved.getExpectedAttendees(),
-                saved.getStatus().name()
-        );
+        return mapToBookingResponse(saved);
     }
 
     public BookingResponse cancelBooking(Long id) {
@@ -144,16 +148,19 @@ public class BookingService {
         booking.setUpdatedAt(LocalDateTime.now());
 
         Booking saved = bookingRepository.save(booking);
+        return mapToBookingResponse(saved);
+    }
 
+    private BookingResponse mapToBookingResponse(Booking booking) {
         return new BookingResponse(
-                saved.getId(),
-                saved.getResourceId(),
-                saved.getDate(),
-                saved.getStartTime(),
-                saved.getEndTime(),
-                saved.getPurpose(),
-                saved.getExpectedAttendees(),
-                saved.getStatus().name()
+                booking.getId(),
+                booking.getResourceId(),
+                booking.getDate(),
+                booking.getStartTime(),
+                booking.getEndTime(),
+                booking.getPurpose(),
+                booking.getExpectedAttendees(),
+                booking.getStatus().name()
         );
     }
 }
