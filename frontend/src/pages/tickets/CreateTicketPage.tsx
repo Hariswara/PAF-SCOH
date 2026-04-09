@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { DuplicateSidebar } from '@/components/tickets/DuplicateSidebar';
+import { AttachmentUploader } from '@/components/tickets/AttachmentUploader';
 import { toast } from 'sonner';
 import type { TicketCategory, TicketPriority, DuplicateSuggestion } from '@/types/ticket';
 
@@ -226,6 +227,18 @@ const CreateTicketPage: React.FC = () => {
                             onChange={handleChange('preferredContact')}
                             required
                             className="h-12 bg-transparent border-0 border-b-2 border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0 text-base"
+                        />
+                    </div>
+
+                    {/* Attachment Uploader */}
+                    <div className="space-y-3">
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                            Evidence Images <span className="normal-case font-normal text-muted-foreground/60">(up to 3)</span>
+                        </Label>
+                        <AttachmentUploader
+                            pendingFiles={pendingFiles}
+                            onFilesChange={setPendingFiles}
+                            maxFiles={3}
                         />
                     </div>
 
