@@ -17,14 +17,11 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import type { TicketStatus } from '@/types/ticket';
 
-const ALLOWED_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
+const STAFF_TRANSITIONS: Partial<Record<TicketStatus, TicketStatus[]>> = {
     OPEN: ['IN_PROGRESS'],
     IN_PROGRESS: ['RESOLVED'],
     RESOLVED: ['CLOSED'],
-    CLOSED: [],
-    REJECTED: [],
 };
-
 const ADMIN_EXTRA: TicketStatus[] = ['REJECTED'];
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
@@ -148,10 +145,13 @@ const TicketDetailPage: React.FC = () => {
     }
 
     // Compute available next statuses
-    let nextStatuses: TicketStatus[] = ALLOWED_TRANSITIONS[ticket.status] ?? [];
-    if (isAdmin) nextStatuses = [...nextStatuses, ...ADMIN_EXTRA].filter((s) => s !== ticket.status);
-    // Technicians can only advance if assigned to the ticket
-    if (isTechnician && !isAssignedTech) nextStatuses = [];
+    let nextStatuses: TicketStatus[] = [];
+    if (isAdmin) {
+        nextStatuses = [...(STAFF_TRANSITIONS[ticket.status] ?? []), ...ADMIN_EXTRA]
+            .filter((s) => s !== ticket.status);
+    } else if (isAssignedTech) {
+        nextStatuses = STAFF_TRANSITIONS[ticket.status] ?? [];
+    }
 
     const canAddResolution = (isAssignedTech || isAdmin) && ticket.status !== 'CLOSED' && ticket.status !== 'REJECTED';
     const canAssign = isAdmin && ticket.status !== 'CLOSED' && ticket.status !== 'REJECTED';
