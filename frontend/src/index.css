@@ -7,6 +7,7 @@
 @theme {
     --font-sans: "Albert Sans", sans-serif;
     --font-serif: "Cormorant Garamond", serif;
+    --font-mono: "JetBrains Mono", monospace;
 }
 
 @theme inline {
@@ -38,44 +39,87 @@
 }
 
 :root {
-    --radius: 0.25rem;
-    --background: #FDFDFB; /* Warm cream */
-    --foreground: #0B132B; /* Deep Navy */
-    
-    --card: #FFFFFF;
-    --card-foreground: #0B132B;
-    
-    --popover: #FFFFFF;
-    --popover-foreground: #0B132B;
-    
-    --primary: #0B132B; /* Deep Navy */
-    --primary-foreground: #FDFDFB;
-    
-    --secondary: #C19B6C; /* Academic Gold */
-    --secondary-foreground: #ffffff;
-    
-    --muted: #F3F1EA;
-    --muted-foreground: #64748B;
-    
-    --accent: #F3F1EA;
-    --accent-foreground: #0B132B;
-    
-    --destructive: #7F1D1D;
-    --border: #E5E3DB;
-    --input: #E5E3DB;
-    --ring: #C19B6C;
+    --radius: 0.375rem;
+
+    /* ═══════════════════════════════════
+       CAMPUS GREENS — Design System
+       Light × Institutional Green × Serif
+       ═══════════════════════════════════ */
+
+    --background:   #F8FAF7;
+    --foreground:   #1A2E1A;
+
+    --card:             #FFFFFF;
+    --card-foreground:  #1A2E1A;
+
+    --popover:             #FFFFFF;
+    --popover-foreground:  #1A2E1A;
+
+    /* Institutional green — primary actions */
+    --primary:            #2D7A3A;
+    --primary-foreground: #FFFFFF;
+
+    /* Muted sage — secondary accent */
+    --secondary:            #5B8C5A;
+    --secondary-foreground: #FFFFFF;
+
+    --muted:             #F2F5F0;
+    --muted-foreground:  #6B7B6B;
+
+    --accent:            #E8F0E6;
+    --accent-foreground: #1A2E1A;
+
+    --destructive: #D94444;
+    --border:      #E2E8DF;
+    --input:       #F2F5F0;
+    --ring:        #2D7A3A;
+
+    /* ─ Extended tokens ─ */
+    --surface-1: #FFFFFF;
+    --surface-2: #F2F5F0;
+    --surface-3: #EFF3EC;
+    --green:      #2D7A3A;
+    --green-dim:  rgba(45, 122, 58, 0.08);
+    --green-glow: rgba(45, 122, 58, 0.04);
+    --sidebar-width: 244px;
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground font-sans antialiased;
-    background-image: radial-gradient(#E5E3DB 1px, transparent 1px);
-    background-size: 24px 24px;
-  }
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-serif tracking-tight;
-  }
+    * {
+        @apply border-border outline-ring/50;
+    }
+    body {
+        @apply bg-background text-foreground font-sans antialiased;
+        background-image:
+            radial-gradient(circle, rgba(45,122,58,0.06) 1px, transparent 1px);
+        background-size: 28px 28px;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        @apply font-serif tracking-tight;
+    }
 }
+
+/* ─ Scrollbar ─ */
+::-webkit-scrollbar       { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #D0DAC9; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #6B7B6B; }
+
+/* ─ Selection ─ */
+::selection { background: var(--green-dim); color: var(--green); }
+
+/* ─ Page fade-in ─ */
+@keyframes page-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter {
+    animation: page-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ─ Status pulse ─ */
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+}
+.status-dot { animation: pulse-dot 2.5s ease-in-out infinite; }

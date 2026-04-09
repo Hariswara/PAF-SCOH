@@ -31,59 +31,62 @@ public class SecurityConfig {
         requestHandler.setCsrfRequestAttributeName(null);
 
         http
-                .csrf(csrf -> csrf
-                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .csrfTokenRequestHandler(requestHandler)
-                        .ignoringRequestMatchers("/api/auth/logout"))
-                .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
-                .addFilterAfter(new UserStatusFilter(userRepository), CsrfCookieFilter.class)
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/index.html", "/static/**", "/*.png", "/*.ico", "/*.json").permitAll()
-                        .requestMatchers("/api/auth/status").permitAll()
-                        .requestMatchers("/api/auth/register/**").hasAuthority("STATUS_PENDING_PROFILE")
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRequestHandler(requestHandler)
+                .ignoringRequestMatchers("/api/auth/logout")
+                .ignoringRequestMatchers("/api/auth/passkey/login/**")
+            )
+            .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
+            .addFilterAfter(new UserStatusFilter(userRepository), CsrfCookieFilter.class)
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/", "/index.html", "/static/**", "/*.png", "/*.ico", "/*.json").permitAll()
+                .requestMatchers("/api/auth/status").permitAll()
+                .requestMatchers("/api/auth/passkey/login/**").permitAll()
+                .requestMatchers("/api/auth/register/**").hasAuthority("STATUS_PENDING_PROFILE")
 
-                        // Domain management - Write actions are SUPER_ADMIN only
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/domains")
-                        .hasRole("SUPER_ADMIN")
-                        .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/domains/**")
-                        .hasRole("SUPER_ADMIN")
-                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/domains/**")
-                        .hasRole("SUPER_ADMIN")
-                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/domains/**")
-                        .hasRole("SUPER_ADMIN")
-                        // Ticket endpoints – users must be ACTIVE (covered by STATUS_ACTIVE)
-                        // Admin-only: assign technician
-                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/tickets/*/assign")
-                        .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
-                        // Duplicate check is open to any active user (read-only Lucene)
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/tickets/duplicates/**")
-                        .hasAuthority("STATUS_ACTIVE")
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/tickets/duplicates/**")
-                        .hasAuthority("STATUS_ACTIVE")
+                // Domain management - Write actions are SUPER_ADMIN only
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/domains").hasRole("SUPER_ADMIN")
+                .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/domains/**").hasRole("SUPER_ADMIN")
+                .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/domains/**").hasRole("SUPER_ADMIN")
+                .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/domains/**").hasRole("SUPER_ADMIN")
 
-                        .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
-                        .requestMatchers("/api/**").hasAuthority("STATUS_ACTIVE")
-                        .anyRequest().authenticated())
-                .oauth2Login(oauth2 -> oauth2
-                        .userInfoEndpoint(userInfo -> userInfo.userService(oauth2UserService))
-                        .defaultSuccessUrl("http://localhost:5173/dashboard", true))
-                .logout(logout -> logout
-                        .logoutUrl("/api/auth/logout")
-                        .logoutRequestMatcher(new AntPathRequestMatcher("/api/auth/logout"))
-                        .logoutSuccessUrl("http://localhost:5173/login")
-                        .deleteCookies("JSESSIONID")
-                        .invalidateHttpSession(true))
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint((request, response, authException) -> {
-                            if (request.getRequestURI().startsWith("/api/")) {
-                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
-                            } else {
-                                response.sendRedirect("/oauth2/authorization/google");
-                            }
-                        })
-                        .accessDeniedHandler((request, response, accessDeniedException) -> response.sendError(
-                                HttpServletResponse.SC_FORBIDDEN,
-                                "Access Denied: " + accessDeniedException.getMessage())));
+                // Ticket endpoints – admin-only: assign technician
+                .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/tickets/*/assign")
+                    .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
+                // Duplicate check is open to any active user
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/tickets/duplicates/**")
+                    .hasAuthority("STATUS_ACTIVE")
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/tickets/duplicates/**")
+                    .hasAuthority("STATUS_ACTIVE")
+
+                .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
+                .requestMatchers("/api/**").hasAuthority("STATUS_ACTIVE")
+                .anyRequest().authenticated()
+            )
+            .oauth2Login(oauth2 -> oauth2
+                .userInfoEndpoint(userInfo -> userInfo.userService(oauth2UserService))
+                .defaultSuccessUrl("http://localhost:5173/dashboard", true)
+            )
+            .logout(logout -> logout
+                .logoutUrl("/api/auth/logout")
+                .logoutRequestMatcher(new AntPathRequestMatcher("/api/auth/logout"))
+                .logoutSuccessUrl("http://localhost:5173/login")
+                .deleteCookies("JSESSIONID")
+                .invalidateHttpSession(true)
+            )
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, authException) -> {
+                    if (request.getRequestURI().startsWith("/api/")) {
+                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+                    } else {
+                        response.sendRedirect("/oauth2/authorization/google");
+                    }
+                })
+                .accessDeniedHandler((request, response, accessDeniedException) ->
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: " + accessDeniedException.getMessage())
+                )
+            );
 
         return http.build();
     }
