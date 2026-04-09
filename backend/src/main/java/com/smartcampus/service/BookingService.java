@@ -25,9 +25,29 @@ public class BookingService {
     public BookingResponse createBooking(CreateBookingRequest request) {
 
         // Validate time
+        if (request.getStartTime() == null || request.getEndTime() == null) {
+            throw new IllegalArgumentException("Start time and end time are required");
+        }
+
         if (!request.getStartTime().isBefore(request.getEndTime())) {
             throw new IllegalArgumentException("Start time must be before end time");
         }
+
+        // Validate overlapping bookings for same resource/date
+        boolean hasConflict =
+                bookingRepository.existsByResourceIdAndDateAndStartTimeLessThanAndEndTimeGreaterThanAndStatusNot(
+                        request.getResourceId(),
+                        request.getDate(),
+                        request.getEndTime(),
+                        request.getStartTime(),
+                        BookingStatus.CANCELLED
+                );
+
+        if (hasConflict) {
+            throw new IllegalArgumentException("Conflicting booking already exists for the selected time range");
+        }
+
+        // Resource validation will be added when Resource module is ready
 
         // MUST have logged-in user (no fallback)
         User currentUser = authService.getCurrentUser();
@@ -44,9 +64,7 @@ public class BookingService {
         booking.setExpectedAttendees(request.getExpectedAttendees());
         booking.setStatus(BookingStatus.PENDING);
 
-        // real user association
         booking.setCreatedBy(currentUser.email());
-
         booking.setCreatedAt(LocalDateTime.now());
         booking.setUpdatedAt(LocalDateTime.now());
 

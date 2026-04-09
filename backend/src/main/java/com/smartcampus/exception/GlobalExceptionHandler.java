@@ -37,16 +37,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleGeneral(Exception ex) {
-        Map<String, Object> body = Map.of(
-                "timestamp", Instant.now(),
-                "status", HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                "message", "An unexpected error occurred");
-
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
-    }
-
     @ExceptionHandler(TicketAttachmentLimitException.class)
     public ResponseEntity<Map<String, Object>> handleAttachmentLimit(TicketAttachmentLimitException ex) {
         Map<String, Object> body = Map.of(
@@ -72,5 +62,24 @@ public class GlobalExceptionHandler {
                 "status", HttpStatus.CONFLICT.value(),
                 "message", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        Map<String, Object> body = Map.of(
+                "timestamp", Instant.now(),
+                "status", HttpStatus.BAD_REQUEST.value(),
+                "message", ex.getMessage());
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> handleGeneral(Exception ex) {
+        Map<String, Object> body = Map.of(
+                "timestamp", Instant.now(),
+                "status", HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "message", "An unexpected error occurred");
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
 }
