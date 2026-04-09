@@ -17,6 +17,8 @@ public record User(
     String studentId,
     String department,
     String phone,
+    String contactEmail,
+    String gender,
     String profilePicture,
     UserRole role,
     UserStatus status,
@@ -27,7 +29,7 @@ public record User(
 ) {
     public static User createNew(String googleId, String email, String fullName, String profilePicture) {
         return new User(
-            null, googleId, email, fullName, null, null, null, profilePicture,
+            null, googleId, email, fullName, null, null, null, null, null, profilePicture,
             null, UserStatus.PENDING_PROFILE, null, null, null, null
         );
     }

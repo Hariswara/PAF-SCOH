@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS users (
     student_id VARCHAR(50) UNIQUE,
     department VARCHAR(255),
     phone VARCHAR(20),
+    contact_email VARCHAR(255),
+    gender VARCHAR(20),
     profile_picture TEXT,
     role VARCHAR(50), -- STUDENT, DOMAIN_ADMIN, TECHNICIAN, SUPER_ADMIN
     status VARCHAR(50) DEFAULT 'PENDING_PROFILE', -- PENDING_PROFILE, PENDING_ACTIVATION, ACTIVE, SUSPENDED
@@ -115,3 +117,7 @@ CREATE TABLE IF NOT EXISTS ticket_comments (
     created_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- v3: Add profile fields to existing users table (safe to re-run; errors ignored via continue-on-error)
+ALTER TABLE users ADD COLUMN contact_email VARCHAR(255);
+ALTER TABLE users ADD COLUMN gender VARCHAR(20);

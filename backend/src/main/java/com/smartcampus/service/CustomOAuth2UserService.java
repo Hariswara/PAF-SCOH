@@ -44,13 +44,15 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                         existingUser.studentId(),
                         existingUser.department(),
                         existingUser.phone(),
+                        existingUser.contactEmail(),
+                        existingUser.gender(),
                         picture,
                         existingUser.role(),
                         existingUser.status(),
                         existingUser.domainId(),
                         Instant.now(),
                         existingUser.createdAt(),
-                        null // updated_at handled by Spring Data
+                        null
                     );
                     return userRepository.save(updated);
                 })

@@ -45,7 +45,7 @@ class AuthIntegrationTests {
         void authenticatedStatusShouldReturnUser() throws Exception {
                 userRepository.save(new User(
                                 null, "google-123", "auth-test@example.com", "Auth Test User",
-                                null, null, null, null,
+                                null, null, null, null, null, null,
                                 UserRole.STUDENT, UserStatus.ACTIVE, null, null, null, null));
 
                 mockMvc.perform(get("/api/auth/status")
@@ -69,7 +69,7 @@ class AuthIntegrationTests {
         void pendingProfileUserCanAccessRegistrationButNotGreet() throws Exception {
                 userRepository.save(new User(
                                 null, "google-pending", "pending@example.com", "Pending User",
-                                null, null, null, null,
+                                null, null, null, null, null, null,
                                 null, UserStatus.PENDING_PROFILE, null, null, null, null));
 
                 // Can access registration
@@ -107,7 +107,7 @@ class AuthIntegrationTests {
         void activeUserCanAccessGreet() throws Exception {
                 userRepository.save(new User(
                                 null, "google-active", "active@example.com", "Active User",
-                                null, null, null, null,
+                                null, null, null, null, null, null,
                                 UserRole.STUDENT, UserStatus.ACTIVE, null, null, null, null));
 
                 mockMvc.perform(get("/api/greet")
@@ -134,7 +134,7 @@ class AuthIntegrationTests {
         void passkeyRegisterStartShouldReturn403ForPendingProfileUser() throws Exception {
                 userRepository.save(new User(
                                 null, "google-pending2", "passkey-pending@example.com", "Pending Passkey User",
-                                null, null, null, null,
+                                null, null, null, null, null, null,
                                 null, UserStatus.PENDING_PROFILE, null, null, null, null));
 
                 mockMvc.perform(post("/api/auth/passkey/register/start")
@@ -154,7 +154,7 @@ class AuthIntegrationTests {
         void passkeyCredentialsListShouldReturn200ForActiveUser() throws Exception {
                 userRepository.save(new User(
                                 null, "google-passkey-active", "passkey-active@example.com", "Passkey Active User",
-                                null, null, null, null,
+                                null, null, null, null, null, null,
                                 UserRole.STUDENT, UserStatus.ACTIVE, null, null, null, null));
 
                 mockMvc.perform(get("/api/auth/passkey/credentials")

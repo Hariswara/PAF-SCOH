@@ -33,7 +33,7 @@ class AuthRepositoryTests {
     void testUserPersistence() {
         User user = new User(
             null, "google-123", "test@example.com", "Test User",
-            null, null, null, null,
+            null, null, null, null, null, null,
             UserRole.STUDENT, UserStatus.ACTIVE, null, null, null, null
         );
 
@@ -63,7 +63,7 @@ class AuthRepositoryTests {
         // Create a user first
         User user = userRepository.save(new User(
             null, "google-456", "audit@example.com", "Audit User",
-            null, null, null, null,
+            null, null, null, null, null, null,
             UserRole.STUDENT, UserStatus.ACTIVE, null, null, null, null
         ));
 

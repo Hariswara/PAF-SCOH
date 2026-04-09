@@ -12,6 +12,13 @@ export interface User {
   status: UserStatus;
   profilePicture?: string;
   domainId?: string;
+  domainName?: string;
+  studentId?: string;
+  department?: string;
+  phone?: string;
+  contactEmail?: string;
+  gender?: string;
+  lastLoginAt?: string;
 }
 
 interface AuthContextType {
@@ -34,7 +41,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await api.get('/auth/status');
       if (response.data.authenticated) {
-        setUser(response.data.user);
+        const userData = response.data.user;
+        if (response.data.domainName) {
+          userData.domainName = response.data.domainName;
+        }
+        setUser(userData);
         setIsAuthenticated(true);
       } else {
         setUser(null);
