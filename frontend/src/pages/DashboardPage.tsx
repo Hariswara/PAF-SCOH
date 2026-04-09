@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { User } from '@/contexts/AuthContext';
 import { Link } from 'react-router-dom';
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   BookMarked, CalendarCheck, Ticket, Users, Globe2,
   ShieldAlert, Clock, CheckCircle2, AlertTriangle, Activity,
-  ArrowRight, ArrowLeft,
+  ArrowRight,
 } from 'lucide-react';
 
 /* ─── Types ─── */
@@ -46,7 +46,7 @@ function StatCard({
   label, value, sub, accent, icon: Icon,
 }: {
   label: string; value: React.ReactNode; sub?: string;
-  accent: string; icon: React.ComponentType<{ size?: number }>;
+  accent: string; icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
 }) {
   return (
     <div
@@ -91,7 +91,7 @@ function ActionCard({
   title, desc, href, icon: Icon, accent,
 }: {
   title: string; desc: string; href: string;
-  icon: React.ComponentType<{ size?: number }>; accent: string;
+  icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>; accent: string;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -136,180 +136,6 @@ function ActionCard({
   );
 }
 
-/* ─── Campus Pulse ─── */
-
-const ZONES = [
-  { id: 'library',  name: 'Central Library', x: 18, y: 22, baseOccupancy: 72 },
-  { id: 'labs',     name: 'Science Labs',    x: 72, y: 18, baseOccupancy: 58 },
-  { id: 'mainHall', name: 'Main Hall',       x: 42, y: 55, baseOccupancy: 45 },
-  { id: 'sports',   name: 'Sports Complex',  x: 80, y: 70, baseOccupancy: 33 },
-  { id: 'canteen',  name: 'Student Canteen', x: 28, y: 78, baseOccupancy: 81 },
-  { id: 'admin',    name: 'Admin Block',     x: 58, y: 35, baseOccupancy: 25 },
-];
-
-function CampusPulse() {
-  const [hovered, setHovered] = useState<string | null>(null);
-
-  const occupancy = useMemo(() => {
-    const map: Record<string, number> = {};
-    ZONES.forEach(z => {
-      const jitter = Math.floor(Math.random() * 20) - 10;
-      map[z.id] = Math.max(5, Math.min(98, z.baseOccupancy + jitter));
-    });
-    return map;
-  }, []);
-
-  const barColor = (pct: number) =>
-    pct > 70 ? '#D4A017' : pct > 40 ? '#5B8C5A' : '#2D7A3A';
-
-  return (
-    <div
-      className="rounded-lg overflow-hidden"
-      style={{ background: '#FFFFFF', border: '1px solid #E2E8DF' }}
-    >
-      <div
-        className="flex items-center justify-between px-5 py-4"
-        style={{ borderBottom: '1px solid #E2E8DF' }}
-      >
-        <div className="flex items-center gap-2.5">
-          <Activity size={14} style={{ color: '#2D7A3A' }} />
-          <p className="font-serif text-[15px]" style={{ color: '#1A2E1A' }}>
-            Campus Pulse
-          </p>
-        </div>
-        <span
-          className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full"
-          style={{ background: 'rgba(45,122,58,0.08)', color: '#2D7A3A', fontFamily: 'Albert Sans, sans-serif' }}
-        >
-          Live
-        </span>
-      </div>
-
-      <div className="relative" style={{ paddingBottom: '52%' }}>
-        {/* Campus outline SVG */}
-        <svg
-          viewBox="0 0 100 60"
-          className="absolute inset-0 w-full h-full"
-          style={{ overflow: 'visible' }}
-        >
-          {/* Ground paths */}
-          <path
-            d="M5,50 Q15,48 25,50 T45,48 T65,50 T85,48 L95,50 L95,55 Q50,58 5,55 Z"
-            fill="#E8F0E6" stroke="#D0DAC9" strokeWidth="0.3"
-          />
-          {/* Building outlines */}
-          <rect x="12" y="18" width="12" height="10" rx="0.5" fill="#EFF3EC" stroke="#D0DAC9" strokeWidth="0.3" />
-          <rect x="66" y="14" width="14" height="9" rx="0.5" fill="#EFF3EC" stroke="#D0DAC9" strokeWidth="0.3" />
-          <rect x="36" y="48" width="16" height="11" rx="0.5" fill="#EFF3EC" stroke="#D0DAC9" strokeWidth="0.3" />
-          <rect x="73" y="62" width="15" height="10" rx="0.5" fill="#EFF3EC" stroke="#D0DAC9" strokeWidth="0.3" />
-          <rect x="20" y="70" width="18" height="12" rx="0.5" fill="#EFF3EC" stroke="#D0DAC9" strokeWidth="0.3" />
-          <rect x="52" y="30" width="12" height="8" rx="0.5" fill="#EFF3EC" stroke="#D0DAC9" strokeWidth="0.3" />
-          {/* Paths between buildings */}
-          <path d="M24,28 Q34,38 42,48" fill="none" stroke="#D0DAC9" strokeWidth="0.4" strokeDasharray="1.5 1" />
-          <path d="M58,38 Q62,45 52,48" fill="none" stroke="#D0DAC9" strokeWidth="0.4" strokeDasharray="1.5 1" />
-          <path d="M73,23 Q68,30 58,32" fill="none" stroke="#D0DAC9" strokeWidth="0.4" strokeDasharray="1.5 1" />
-          <path d="M44,59 Q55,64 73,67" fill="none" stroke="#D0DAC9" strokeWidth="0.4" strokeDasharray="1.5 1" />
-          {/* Trees */}
-          {[[8,45],[32,42],[50,25],[90,40],[60,55],[15,60]].map(([tx,ty], i) => (
-            <circle key={i} cx={tx} cy={ty} r="2" fill="#D0DAC9" opacity="0.4" />
-          ))}
-        </svg>
-
-        {/* Zone dots */}
-        {ZONES.map(zone => {
-          const pct = occupancy[zone.id];
-          const isHov = hovered === zone.id;
-          return (
-            <div
-              key={zone.id}
-              className="absolute"
-              style={{ left: `${zone.x}%`, top: `${zone.y}%`, transform: 'translate(-50%, -50%)', zIndex: isHov ? 20 : 10 }}
-              onMouseEnter={() => setHovered(zone.id)}
-              onMouseLeave={() => setHovered(null)}
-            >
-              {/* Pulse ring */}
-              <div
-                className="absolute inset-0 rounded-full status-dot"
-                style={{
-                  width: 22, height: 22, left: -5, top: -5,
-                  background: 'rgba(45,122,58,0.10)',
-                }}
-              />
-              {/* Dot */}
-              <div
-                className="w-3 h-3 rounded-full cursor-pointer transition-transform duration-200"
-                style={{
-                  background: '#2D7A3A',
-                  boxShadow: isHov ? '0 0 0 4px rgba(45,122,58,0.15)' : 'none',
-                  transform: isHov ? 'scale(1.4)' : 'scale(1)',
-                }}
-              />
-              {/* Tooltip */}
-              {isHov && (
-                <div
-                  className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 rounded-md whitespace-nowrap pointer-events-none"
-                  style={{
-                    background: '#FFFFFF',
-                    border: '1px solid #E2E8DF',
-                    boxShadow: '0 4px 12px rgba(26,46,26,0.08)',
-                    fontFamily: 'Albert Sans, sans-serif',
-                  }}
-                >
-                  <p className="text-[11px] font-semibold mb-1.5" style={{ color: '#1A2E1A' }}>
-                    {zone.name}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="h-1.5 rounded-full"
-                      style={{ width: 60, background: '#EFF3EC' }}
-                    >
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${pct}%`, background: barColor(pct) }}
-                      />
-                    </div>
-                    <span className="text-[10px] font-semibold" style={{ color: barColor(pct) }}>
-                      {pct}%
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Legend */}
-      <div
-        className="flex flex-wrap items-center gap-4 px-5 py-3"
-        style={{ borderTop: '1px solid #E2E8DF' }}
-      >
-        {ZONES.map(z => (
-          <div
-            key={z.id}
-            className="flex items-center gap-1.5 cursor-pointer"
-            onMouseEnter={() => setHovered(z.id)}
-            onMouseLeave={() => setHovered(null)}
-          >
-            <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#2D7A3A' }} />
-            <span
-              className="text-[10px]"
-              style={{
-                color: hovered === z.id ? '#1A2E1A' : '#6B7B6B',
-                fontFamily: 'Albert Sans, sans-serif',
-                fontWeight: hovered === z.id ? 600 : 400,
-                transition: 'all 0.15s',
-              }}
-            >
-              {z.name}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 /* ─── Student view ─── */
 const StudentDashboard = () => (
   <div className="space-y-8 page-enter">
@@ -328,7 +154,50 @@ const StudentDashboard = () => (
     </section>
 
     <section>
-      <CampusPulse />
+      <div
+        className="rounded-lg overflow-hidden"
+        style={{ background: '#FFFFFF', border: '1px solid #E2E8DF' }}
+      >
+        <div
+          className="flex items-center justify-between px-5 py-4"
+          style={{ borderBottom: '1px solid #E2E8DF' }}
+        >
+          <div className="flex items-center gap-2.5">
+            <Activity size={14} style={{ color: '#2D7A3A' }} />
+            <p className="font-serif text-[15px]" style={{ color: '#1A2E1A' }}>
+              Campus Pulse
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col items-center justify-center py-16">
+          <div
+            className="w-12 h-12 rounded-md flex items-center justify-center mb-5"
+            style={{ background: 'rgba(45,122,58,0.08)' }}
+          >
+            <Activity size={20} style={{ color: '#2D7A3A' }} />
+          </div>
+          <p className="font-serif text-[22px] mb-2" style={{ color: '#1A2E1A' }}>
+            Coming Soon
+          </p>
+          <p
+            className="text-[13px] text-center max-w-xs"
+            style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+          >
+            Real-time campus occupancy monitoring is under development. Stay tuned.
+          </p>
+          <div
+            className="mt-5 px-4 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-wider"
+            style={{
+              background: 'rgba(45,122,58,0.06)',
+              color: '#2D7A3A',
+              border: '1px solid rgba(45,122,58,0.2)',
+              fontFamily: 'Albert Sans, sans-serif',
+            }}
+          >
+            In Development
+          </div>
+        </div>
+      </div>
     </section>
   </div>
 );
