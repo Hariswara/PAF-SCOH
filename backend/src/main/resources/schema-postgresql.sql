@@ -42,18 +42,22 @@ CREATE TABLE IF NOT EXISTS user_role_audit (
     changed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS bookings (
+ CREATE TABLE IF NOT EXISTS bookings(
     id BIGSERIAL PRIMARY KEY,
-    resource_id BIGINT NOT NULL,
+    resource_id UUID NOT NULL,
     date DATE NOT NULL,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     purpose VARCHAR(255) NOT NULL,
-    expected_attendees INTEGER,
+    expected_attendees INTEGER NOT NULL,
     status VARCHAR(50) NOT NULL,
-    created_by VARCHAR(255) NOT NULL,
+    created_by VARCHAR(100),
     created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP,
-    reviewed_by VARCHAR(255),
-    reviewed_at TIMESTAMP
+    updated_at TIMESTAMP NOT NULL,
+    reviewed_by VARCHAR(100),
+    reviewed_at TIMESTAMP,
+    CONSTRAINT fk_bookings_resource
+        FOREIGN KEY (resource_id)
+        REFERENCES resources(id)
+        ON DELETE CASCADE
 );

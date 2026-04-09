@@ -1,11 +1,12 @@
 package com.smartcampus.model;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.relational.core.mapping.Table;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.UUID;
+
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Table;
 
 @Table("bookings")
 public class Booking {
@@ -13,7 +14,7 @@ public class Booking {
     @Id
     private Long id;
 
-    private Long resourceId;
+    private UUID resourceId;
     private LocalDate date;
     private LocalTime startTime;
     private LocalTime endTime;
@@ -31,7 +32,7 @@ public class Booking {
 
     public Booking(
             Long id,
-            Long resourceId,
+            UUID resourceId,
             LocalDate date,
             LocalTime startTime,
             LocalTime endTime,
@@ -63,11 +64,11 @@ public class Booking {
         return id;
     }
 
-    public Long getResourceId() {
+    public UUID getResourceId() {
         return resourceId;
     }
 
-    public void setResourceId(Long resourceId) {
+    public void setResourceId(UUID resourceId) {
         this.resourceId = resourceId;
     }
 
