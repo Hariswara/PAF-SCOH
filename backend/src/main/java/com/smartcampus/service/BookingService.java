@@ -6,9 +6,11 @@ import org.springframework.stereotype.Service;
 
 import com.smartcampus.dto.BookingResponse;
 import com.smartcampus.dto.CreateBookingRequest;
+import com.smartcampus.dto.ReviewBookingRequest;
 import com.smartcampus.model.Booking;
 import com.smartcampus.model.BookingStatus;
 import com.smartcampus.model.User;
+import com.smartcampus.model.UserRole;
 import com.smartcampus.repository.BookingRepository;
 
 @Service
@@ -48,6 +50,49 @@ public class BookingService {
         booking.setCreatedBy(currentUser.email());
 
         booking.setCreatedAt(LocalDateTime.now());
+        booking.setUpdatedAt(LocalDateTime.now());
+
+        Booking saved = bookingRepository.save(booking);
+
+        return new BookingResponse(
+                saved.getId(),
+                saved.getResourceId(),
+                saved.getDate(),
+                saved.getStartTime(),
+                saved.getEndTime(),
+                saved.getPurpose(),
+                saved.getExpectedAttendees(),
+                saved.getStatus().name()
+        );
+    }
+
+    public BookingResponse reviewBooking(Long id, ReviewBookingRequest request) {
+
+        Booking booking = bookingRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+
+        User currentUser = authService.getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalArgumentException("Authenticated user not found");
+        }
+
+        if (currentUser.role() != UserRole.DOMAIN_ADMIN &&
+            currentUser.role() != UserRole.SUPER_ADMIN) {
+            throw new IllegalStateException("Only admin users can review bookings");
+        }
+
+        if (booking.getStatus() != BookingStatus.PENDING) {
+            throw new IllegalStateException("Only pending bookings can be reviewed");
+        }
+
+        if (request.getStatus() != BookingStatus.APPROVED &&
+            request.getStatus() != BookingStatus.REJECTED) {
+            throw new IllegalArgumentException("Review status must be APPROVED or REJECTED");
+        }
+
+        booking.setStatus(request.getStatus());
+        booking.setReviewedBy(currentUser.email());
+        booking.setReviewedAt(LocalDateTime.now());
         booking.setUpdatedAt(LocalDateTime.now());
 
         Booking saved = bookingRepository.save(booking);
