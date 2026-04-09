@@ -15,6 +15,7 @@ import ResourcesPage from '@/pages/ResourcesPage';
 
 //tickets
 import TicketListPage from '@/pages/tickets/TicketListPage';
+import CreateTicketPage from '@/pages/tickets/CreateTicketPage';
 
 function App() {
   return (
@@ -112,6 +113,15 @@ function App() {
             element={
               <AuthGuard>
                 <TicketListPage />
+              </AuthGuard>
+            }
+          />
+
+          <Route
+            path="/tickets/new"
+            element={
+              <AuthGuard>
+                <CreateTicketPage />
               </AuthGuard>
             }
           />
