@@ -13,8 +13,11 @@ import DomainManagementPage from '@/pages/admin/DomainManagementPage';
 import AuditLogPage from '@/pages/admin/AuditLogPage';
 import BookingsPage from '@/pages/BookingsPage';
 import ResourcesPage from '@/pages/ResourcesPage';
-import TicketsPage from '@/pages/TicketsPage';
 import ProfilePage from '@/pages/ProfilePage';
+
+// Tickets
+import TicketListPage from '@/pages/tickets/TicketListPage';
+import CreateTicketPage from '@/pages/tickets/CreateTicketPage';
 
 /** Wraps a page with AuthGuard + the shared sidebar layout */
 function ProtectedPage({
@@ -72,8 +75,11 @@ function App() {
           <Route path="/dashboard" element={<ProtectedPage><DashboardPage /></ProtectedPage>} />
           <Route path="/bookings"  element={<ProtectedPage><BookingsPage /></ProtectedPage>} />
           <Route path="/resources" element={<ProtectedPage><ResourcesPage /></ProtectedPage>} />
-          <Route path="/tickets"   element={<ProtectedPage><TicketsPage /></ProtectedPage>} />
           <Route path="/profile"   element={<ProtectedPage><ProfilePage /></ProtectedPage>} />
+
+          {/* ── Tickets ── */}
+          <Route path="/tickets"     element={<ProtectedPage><TicketListPage /></ProtectedPage>} />
+          <Route path="/tickets/new" element={<ProtectedPage><CreateTicketPage /></ProtectedPage>} />
 
           {/* ── Admin (sidebar layout) ── */}
           <Route path="/admin/users"   element={<ProtectedPage allowedRoles={['SUPER_ADMIN']}><UserManagementPage /></ProtectedPage>} />
