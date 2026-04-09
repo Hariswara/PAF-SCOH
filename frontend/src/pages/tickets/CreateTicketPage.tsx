@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { DuplicateSidebar } from '@/components/tickets/DuplicateSidebar';
 import { toast } from 'sonner';
 import type { TicketCategory, TicketPriority, DuplicateSuggestion } from '@/types/ticket';
 
@@ -258,6 +259,15 @@ const CreateTicketPage: React.FC = () => {
                         </Button>
                     </div>
                 </form>
+
+                {/* Duplicate sidebar — 1 col */}
+                <aside className="lg:col-span-1">
+                    <DuplicateSidebar
+                        suggestions={suggestions}
+                        onLink={(id) => setLinkedTicketId(id)}
+                        linkedId={linkedTicketId}
+                    />
+                </aside>
             </div>
         </div>
     );
