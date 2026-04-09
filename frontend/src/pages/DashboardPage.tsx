@@ -1,19 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { User } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import api from '@/lib/api';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  BookMarked, CalendarCheck, Ticket, Users, Globe2,
+  ShieldAlert, Clock, CheckCircle2, AlertTriangle, Activity,
+  ArrowRight,
+} from 'lucide-react';
 
+/* ─── Types ─── */
 interface DashboardStats {
   totalUsers: number;
   activeDomains: number;
   pendingActivations: number;
   systemAlerts: number;
 }
-
 interface AuditLog {
   id: string;
   userId: string;
@@ -26,340 +30,544 @@ interface AuditLog {
 }
 
 const STORAGE_KEYS = {
-  STATS: 'scoh_dashboard_stats',
-  ACTIVITY: 'scoh_dashboard_activity',
-  PENDING: 'scoh_dashboard_pending',
-  TIMESTAMP: 'scoh_dashboard_last_fetch'
+  STATS:     'scoh_dashboard_stats',
+  ACTIVITY:  'scoh_dashboard_activity',
+  PENDING:   'scoh_dashboard_pending',
+  TIMESTAMP: 'scoh_dashboard_last_fetch',
 };
 
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+}
+
+/* ─── Stat card ─── */
+function StatCard({
+  label, value, sub, accent, icon: Icon,
+}: {
+  label: string; value: React.ReactNode; sub?: string;
+  accent: string; icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
+}) {
+  return (
+    <div
+      className="relative p-5 rounded-lg overflow-hidden"
+      style={{ background: '#FFFFFF', border: '1px solid #E2E8DF' }}
+    >
+      <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: accent }} />
+      <div className="flex items-start justify-between mb-4">
+        <p
+          className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+          style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+        >
+          {label}
+        </p>
+        <div
+          className="w-8 h-8 rounded-md flex items-center justify-center"
+          style={{ background: `${accent}14` }}
+        >
+          <Icon size={14} style={{ color: accent }} />
+        </div>
+      </div>
+      <p
+        className="font-serif text-[36px] leading-none mb-1"
+        style={{ color: '#1A2E1A' }}
+      >
+        {value}
+      </p>
+      {sub && (
+        <p
+          className="text-[11px] mt-1.5"
+          style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+        >
+          {sub}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ─── Quick-action card ─── */
+function ActionCard({
+  title, desc, href, icon: Icon, accent,
+}: {
+  title: string; desc: string; href: string;
+  icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>; accent: string;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <Link
+      to={href}
+      className="group flex flex-col justify-between p-5 rounded-lg transition-all duration-200"
+      style={{
+        background:   '#FFFFFF',
+        border:       `1px solid ${hovered ? `${accent}40` : '#E2E8DF'}`,
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div>
+        <div
+          className="w-9 h-9 rounded-md flex items-center justify-center mb-4"
+          style={{ background: `${accent}14` }}
+        >
+          <Icon size={16} style={{ color: accent }} />
+        </div>
+        <p
+          className="font-serif text-[17px] mb-1.5"
+          style={{ color: '#1A2E1A' }}
+        >
+          {title}
+        </p>
+        <p
+          className="text-[13px] leading-relaxed"
+          style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+        >
+          {desc}
+        </p>
+      </div>
+      <div
+        className="mt-5 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide"
+        style={{ color: accent, fontFamily: 'Albert Sans, sans-serif' }}
+      >
+        Open
+        <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
+      </div>
+    </Link>
+  );
+}
+
+/* ─── Student view ─── */
+const StudentDashboard = () => (
+  <div className="space-y-8 page-enter">
+    <section>
+      <p
+        className="text-[10px] font-semibold uppercase tracking-[0.22em] mb-4"
+        style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+      >
+        Quick Access
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <ActionCard title="Resource Catalog" desc="Browse labs, study rooms and equipment." href="/resources" icon={BookMarked}   accent="#2D7A3A" />
+        <ActionCard title="My Bookings"      desc="View and manage facility reservations."  href="/bookings"  icon={CalendarCheck} accent="#5B8C5A" />
+        <ActionCard title="Support Tickets"  desc="Report technical or facility issues."    href="/tickets"   icon={Ticket}        accent="#D94444" />
+      </div>
+    </section>
+
+    <section>
+      <div
+        className="rounded-lg overflow-hidden"
+        style={{ background: '#FFFFFF', border: '1px solid #E2E8DF' }}
+      >
+        <div
+          className="flex items-center justify-between px-5 py-4"
+          style={{ borderBottom: '1px solid #E2E8DF' }}
+        >
+          <div className="flex items-center gap-2.5">
+            <Activity size={14} style={{ color: '#2D7A3A' }} />
+            <p className="font-serif text-[15px]" style={{ color: '#1A2E1A' }}>
+              Campus Pulse
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col items-center justify-center py-16">
+          <div
+            className="w-12 h-12 rounded-md flex items-center justify-center mb-5"
+            style={{ background: 'rgba(45,122,58,0.08)' }}
+          >
+            <Activity size={20} style={{ color: '#2D7A3A' }} />
+          </div>
+          <p className="font-serif text-[22px] mb-2" style={{ color: '#1A2E1A' }}>
+            Coming Soon
+          </p>
+          <p
+            className="text-[13px] text-center max-w-xs"
+            style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+          >
+            Real-time campus occupancy monitoring is under development. Stay tuned.
+          </p>
+          <div
+            className="mt-5 px-4 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-wider"
+            style={{
+              background: 'rgba(45,122,58,0.06)',
+              color: '#2D7A3A',
+              border: '1px solid rgba(45,122,58,0.2)',
+              fontFamily: 'Albert Sans, sans-serif',
+            }}
+          >
+            In Development
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+);
+
+/* ─── Super Admin view ─── */
+const SuperAdminDashboard = ({
+  stats, activity, pending, onActionComplete,
+}: {
+  stats: DashboardStats | null;
+  activity: AuditLog[];
+  pending: User[];
+  onActionComplete: () => void;
+}) => {
+  const handleAssign = async (userId: string, role: string) => {
+    try {
+      await api.put(`/admin/users/${userId}/role`, {
+        newRole: role,
+        reason: 'Initial assignment from dashboard queue',
+      });
+      onActionComplete();
+    } catch {
+      alert('Assignment failed. Domain Admin requires full personnel console for domain selection.');
+    }
+  };
+
+  return (
+    <div className="space-y-8 page-enter">
+      {/* Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <StatCard label="Total Users"       value={stats?.totalUsers          ?? '—'} sub="Campus personnel"     accent="#2D7A3A" icon={Users}         />
+        <StatCard label="Active Domains"    value={stats?.activeDomains       ?? '—'} sub="Operating units"      accent="#5B8C5A" icon={Globe2}         />
+        <StatCard label="Pending Clearance" value={stats?.pendingActivations  ?? '—'} sub="Awaiting assignment"  accent="#7B6BA5" icon={Clock}          />
+        <StatCard label="Suspended Access"  value={stats?.systemAlerts        ?? '0'} sub="System alerts"        accent="#D94444" icon={AlertTriangle}  />
+      </div>
+
+      {/* Audit + Pending */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+        {/* Audit feed */}
+        <div
+          className="rounded-lg overflow-hidden flex flex-col"
+          style={{ background: '#FFFFFF', border: '1px solid #E2E8DF', maxHeight: 370 }}
+        >
+          <div
+            className="flex items-center justify-between px-5 py-4"
+            style={{ borderBottom: '1px solid #E2E8DF' }}
+          >
+            <div className="flex items-center gap-2.5">
+              <Activity size={14} style={{ color: '#2D7A3A' }} />
+              <p className="font-serif text-[15px]" style={{ color: '#1A2E1A' }}>
+                System Audit Feed
+              </p>
+            </div>
+            <Link
+              to="/admin/audit"
+              className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide"
+              style={{ color: '#2D7A3A', fontFamily: 'Albert Sans, sans-serif' }}
+            >
+              Full Log <ArrowRight size={11} />
+            </Link>
+          </div>
+          <div className="flex-1 overflow-y-auto divide-y" style={{ borderColor: '#E2E8DF' }}>
+            {activity.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <CheckCircle2 size={26} style={{ color: '#E2E8DF', marginBottom: 8 }} />
+                <p
+                  className="text-[13px]"
+                  style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+                >
+                  No recent activity
+                </p>
+              </div>
+            ) : activity.map(log => (
+              <div
+                key={log.id}
+                className="flex gap-4 items-start px-5 py-3.5 transition-colors"
+                style={{ borderColor: '#E2E8DF' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#F2F5F0')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                <div
+                  className="font-mono text-[10px] shrink-0 min-w-[68px] leading-snug"
+                  style={{ color: '#6B7B6B' }}
+                >
+                  {format(new Date(log.changedAt), 'MMM dd')}<br />
+                  <span style={{ opacity: 0.5 }}>{format(new Date(log.changedAt), 'HH:mm')}</span>
+                </div>
+                <p
+                  className="text-[12px] leading-relaxed"
+                  style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+                >
+                  <span style={{ color: '#1A2E1A', fontWeight: 500 }}>{log.userEmail}</span>
+                  {' \u2192 '}
+                  <span style={{ color: '#2D7A3A', fontWeight: 500 }}>
+                    {log.newRole.replace('_', ' ')}{log.newDomainName ? ` (${log.newDomainName})` : ''}
+                  </span>
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Pending clearance */}
+        <div
+          className="rounded-lg overflow-hidden flex flex-col"
+          style={{ background: '#FFFFFF', border: '1px solid #E2E8DF', maxHeight: 370 }}
+        >
+          <div
+            className="flex items-center justify-between px-5 py-4"
+            style={{ borderBottom: '1px solid #E2E8DF' }}
+          >
+            <div className="flex items-center gap-2.5">
+              <ShieldAlert size={14} style={{ color: '#7B6BA5' }} />
+              <p className="font-serif text-[15px]" style={{ color: '#1A2E1A' }}>
+                Pending Clearance
+              </p>
+            </div>
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
+              style={{
+                background: pending.length > 0 ? 'rgba(123,107,165,0.10)' : '#F2F5F0',
+                color:      pending.length > 0 ? '#7B6BA5' : '#6B7B6B',
+                fontFamily: 'Albert Sans, sans-serif',
+              }}
+            >
+              {pending.length} waiting
+            </span>
+          </div>
+
+          <div className="flex-1 overflow-y-auto divide-y" style={{ borderColor: '#E2E8DF' }}>
+            {pending.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <CheckCircle2 size={26} style={{ color: '#5B8C5A', marginBottom: 8, opacity: 0.4 }} />
+                <p className="font-serif text-[15px] mb-1" style={{ color: '#1A2E1A' }}>
+                  Queue Clear
+                </p>
+                <p
+                  className="text-[12px]"
+                  style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+                >
+                  All staff accounts are active.
+                </p>
+              </div>
+            ) : pending.map(p => (
+              <div
+                key={p.id}
+                className="flex flex-col sm:flex-row sm:items-center gap-3 px-5 py-3.5 transition-colors"
+                onMouseEnter={e => (e.currentTarget.style.background = '#F2F5F0')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0"
+                    style={{
+                      background: 'rgba(45,122,58,0.08)',
+                      color: '#2D7A3A',
+                      fontFamily: 'Albert Sans, sans-serif',
+                    }}
+                  >
+                    {p.fullName.charAt(0)}
+                  </div>
+                  <div className="min-w-0">
+                    <p
+                      className="text-[13px] font-medium truncate"
+                      style={{ color: '#1A2E1A', fontFamily: 'Albert Sans, sans-serif' }}
+                    >
+                      {p.fullName}
+                    </p>
+                    <p
+                      className="text-[11px] truncate"
+                      style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+                    >
+                      {p.email}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Select
+                    onValueChange={val => {
+                      if (val === 'DOMAIN_ADMIN') window.location.href = '/admin/users';
+                      else handleAssign(p.id, val);
+                    }}
+                  >
+                    <SelectTrigger
+                      className="h-7 w-28 text-[10px] font-semibold uppercase tracking-wider rounded-md"
+                      style={{
+                        background: '#F2F5F0',
+                        border: '1px solid #E2E8DF',
+                        color: '#6B7B6B',
+                        fontFamily: 'Albert Sans, sans-serif',
+                      }}
+                    >
+                      <SelectValue placeholder="Assign\u2026" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TECHNICIAN">Technician</SelectItem>
+                      <SelectItem value="DOMAIN_ADMIN">Domain Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Link
+                    to="/admin/users"
+                    className="text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1.5 rounded-md transition-colors"
+                    style={{
+                      background: '#F2F5F0',
+                      color: '#6B7B6B',
+                      border: '1px solid #E2E8DF',
+                      fontFamily: 'Albert Sans, sans-serif',
+                    }}
+                  >
+                    View
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div
+            className="px-5 py-2.5 text-center"
+            style={{ borderTop: '1px solid #E2E8DF', background: '#F8FAF7' }}
+          >
+            <p
+              className="text-[9px] uppercase tracking-widest"
+              style={{ color: '#6B7B6B', opacity: 0.5 }}
+            >
+              Staff must be vetted before system access is granted
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Admin quick links */}
+      <section>
+        <p
+          className="text-[10px] font-semibold uppercase tracking-[0.22em] mb-4"
+          style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+        >
+          Administration
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <ActionCard title="Personnel"  desc="Manage roles, domains, and account status."  href="/admin/users"   icon={Users}       accent="#2D7A3A" />
+          <ActionCard title="Domains"    desc="Configure campus department domains."         href="/admin/domains" icon={Globe2}       accent="#5B8C5A" />
+          <ActionCard title="Audit Log"  desc="Review the security and change audit trail."  href="/admin/audit"   icon={ShieldAlert}  accent="#7B6BA5" />
+        </div>
+      </section>
+    </div>
+  );
+};
+
+const DomainAdminDashboard = () => (
+  <div className="space-y-8 page-enter">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <ActionCard title="Resources"  desc="Manage domain resources and availability."     href="/resources" icon={BookMarked}   accent="#2D7A3A" />
+      <ActionCard title="Bookings"   desc="Review and approve facility booking requests." href="/bookings"  icon={CalendarCheck} accent="#5B8C5A" />
+      <ActionCard title="Tickets"    desc="Monitor and resolve support tickets."           href="/tickets"   icon={Ticket}        accent="#7B6BA5" />
+    </div>
+  </div>
+);
+
+const TechnicianDashboard = () => (
+  <div className="space-y-8 page-enter">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <ActionCard title="Support Tickets" desc="View and action assigned maintenance tickets." href="/tickets"   icon={Ticket}    accent="#2D7A3A" />
+      <ActionCard title="Resources"       desc="Check resource status and availability."       href="/resources" icon={BookMarked} accent="#5B8C5A" />
+    </div>
+  </div>
+);
+
+/* ─── Page root ─── */
 const DashboardPage: React.FC = () => {
-  const { user, logout } = useAuth();
-  
-  // Hydrate state from localStorage
+  const { user } = useAuth();
+
   const [stats, setStats] = useState<DashboardStats | null>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.STATS);
-    return saved ? JSON.parse(saved) : null;
+    const s = localStorage.getItem(STORAGE_KEYS.STATS);
+    return s ? JSON.parse(s) : null;
   });
-  
   const [recentActivity, setRecentActivity] = useState<AuditLog[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.ACTIVITY);
-    return saved ? JSON.parse(saved) : [];
+    const s = localStorage.getItem(STORAGE_KEYS.ACTIVITY);
+    return s ? JSON.parse(s) : [];
   });
-
   const [pendingUsers, setPendingUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PENDING);
-    return saved ? JSON.parse(saved) : [];
+    const s = localStorage.getItem(STORAGE_KEYS.PENDING);
+    return s ? JSON.parse(s) : [];
   });
-
   const [isLoading, setIsLoading] = useState(!stats);
 
   const fetchAdminData = async () => {
     try {
-      const [statsRes, logsRes, pendingRes] = await Promise.all([
+      const [sR, lR, pR] = await Promise.all([
         api.get('/admin/users/dashboard/stats'),
         api.get('/admin/users/audit-logs'),
-        api.get('/admin/users/pending-activations')
+        api.get('/admin/users/pending-activations'),
       ]);
-      
-      const newStats = statsRes.data;
-      const newActivity = logsRes.data.slice(0, 5);
-      const newPending = pendingRes.data;
-
-      setStats(newStats);
-      setRecentActivity(newActivity);
-      setPendingUsers(newPending);
-
-      localStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(newStats));
-      localStorage.setItem(STORAGE_KEYS.ACTIVITY, JSON.stringify(newActivity));
-      localStorage.setItem(STORAGE_KEYS.PENDING, JSON.stringify(newPending));
+      const ns = sR.data, na = lR.data.slice(0, 5), np = pR.data;
+      setStats(ns); setRecentActivity(na); setPendingUsers(np);
+      localStorage.setItem(STORAGE_KEYS.STATS,     JSON.stringify(ns));
+      localStorage.setItem(STORAGE_KEYS.ACTIVITY,  JSON.stringify(na));
+      localStorage.setItem(STORAGE_KEYS.PENDING,   JSON.stringify(np));
       localStorage.setItem(STORAGE_KEYS.TIMESTAMP, Date.now().toString());
-      
-    } catch (error) {
-      console.error('Failed to refresh dashboard data:', error);
+    } catch (e) {
+      console.error('Dashboard fetch failed:', e);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (user?.role === 'SUPER_ADMIN') {
-      fetchAdminData();
-    }
+    if (user?.role === 'SUPER_ADMIN') fetchAdminData();
   }, [user]);
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
-  };
-
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
-      <nav className="border-b border-border bg-card px-8 py-4 flex justify-between items-center sticky top-0 z-50">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-serif font-bold text-lg">
-            {user?.fullName.charAt(0)}
-          </div>
+    <div className="p-6 sm:p-8 max-w-[1400px] mx-auto">
+      {/* Header */}
+      <header className="mb-8">
+        <div className="flex items-start justify-between">
           <div>
-            <h1 className="font-serif text-2xl text-primary leading-none">Smart Campus Hub</h1>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">University Operations</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="hidden lg:flex items-center gap-6 border-r border-border pr-6">
-            <Link to="/resources" className="text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors">Resources</Link>
-            <Link to="/bookings" className="text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors">Bookings</Link>
-            <Link to="/tickets" className="text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors">Tickets</Link>
-          </div>
-          {user?.role === 'SUPER_ADMIN' && (
-            <div className="flex items-center gap-4 border-r border-border pr-6">
-              <Link to="/admin/users" className="text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors">
-                Personnel
-              </Link>
-              <Link to="/admin/domains" className="text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors">
-                Domains
-              </Link>
-            </div>
-          )}
-          <div className="flex items-center gap-4">
-            <div className="text-right hidden sm:block">
-              <p className="text-xs font-bold text-primary">{user?.fullName}</p>
-              <p className="text-[10px] text-muted-foreground">{user?.role?.replace('_', ' ')}</p>
-            </div>
-            <Button variant="outline" size="sm" onClick={logout} className="h-8 rounded-none border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-all text-[10px] uppercase font-bold tracking-widest">
-              Sign Out
-            </Button>
-          </div>
-        </div>
-      </nav>
-
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-8">
-        <header className="mb-8 border-b border-border pb-6 flex justify-between items-end">
-          <div>
-            <h2 className="text-3xl font-serif text-primary mb-1">
-              {getGreeting()}, {user?.fullName.split(' ')[0]}.
-            </h2>
-            <p className="text-muted-foreground font-light text-sm">
-              Operational overview for today, {format(new Date(), 'EEEE, MMMM do')}.
+            <p
+              className="text-[10px] font-semibold uppercase tracking-[0.25em] mb-2"
+              style={{ color: '#2D7A3A', fontFamily: 'Albert Sans, sans-serif' }}
+            >
+              {format(new Date(), 'EEEE, MMMM d')}
             </p>
+            <h1
+              className="font-serif leading-tight"
+              style={{ color: '#1A2E1A', fontSize: 'clamp(26px, 3vw, 34px)' }}
+            >
+              {greeting()}, {user?.fullName?.split(' ')[0]}.
+            </h1>
           </div>
           {isLoading && stats && (
-            <div className="flex items-center gap-2 mb-1">
-               <div className="w-3 h-3 border-2 border-secondary border-t-transparent rounded-full animate-spin"></div>
-               <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Updating...</span>
+            <div className="flex items-center gap-2 mt-1">
+              <div
+                className="w-3 h-3 rounded-full border-2 animate-spin"
+                style={{ borderColor: '#2D7A3A', borderTopColor: 'transparent' }}
+              />
+              <span
+                className="text-[10px] uppercase tracking-widest"
+                style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+              >
+                Updating&hellip;
+              </span>
             </div>
           )}
-        </header>
+        </div>
+        <div
+          className="mt-5 h-px"
+          style={{ background: 'linear-gradient(90deg, #E2E8DF 0%, transparent 70%)' }}
+        />
+      </header>
 
-        {user?.role === 'STUDENT' && <StudentDashboard />}
-        {user?.role === 'DOMAIN_ADMIN' && <DomainAdminDashboard />}
-        {user?.role === 'TECHNICIAN' && <TechnicianDashboard />}
-        {user?.role === 'SUPER_ADMIN' && (
-          isLoading && !stats ? (
-            <div className="flex justify-center py-20">
-              <div className="w-8 h-8 border-4 border-secondary border-t-primary rounded-full animate-spin"></div>
-            </div>
-          ) : (
-            <SuperAdminDashboard 
-              stats={stats} 
-              activity={recentActivity} 
-              pending={pendingUsers} 
-              onActionComplete={fetchAdminData}
+      {user?.role === 'STUDENT'      && <StudentDashboard />}
+      {user?.role === 'DOMAIN_ADMIN' && <DomainAdminDashboard />}
+      {user?.role === 'TECHNICIAN'   && <TechnicianDashboard />}
+      {user?.role === 'SUPER_ADMIN'  && (
+        isLoading && !stats ? (
+          <div className="flex items-center justify-center py-24">
+            <div
+              className="w-8 h-8 rounded-full border-[3px] animate-spin"
+              style={{ borderColor: '#2D7A3A', borderTopColor: 'transparent' }}
             />
-          )
-        )}
-      </main>
+          </div>
+        ) : (
+          <SuperAdminDashboard
+            stats={stats}
+            activity={recentActivity}
+            pending={pendingUsers}
+            onActionComplete={fetchAdminData}
+          />
+        )
+      )}
     </div>
   );
 };
-
-const StudentDashboard = () => (
-  <div className="space-y-8">
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <Link to="/resources" className="group p-6 bg-card border border-border hover:border-secondary transition-all hover:shadow-lg relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-16 h-16 bg-secondary/5 rounded-bl-[60px] transition-transform group-hover:scale-110"></div>
-        <div className="relative z-10 text-primary group-hover:text-secondary transition-colors">
-          <h3 className="text-lg font-serif font-bold mb-1">Resource Catalog</h3>
-          <p className="text-xs text-muted-foreground font-light mb-4">Browse and find study spaces.</p>
-          <div className="text-[10px] font-bold tracking-widest uppercase">Explore →</div>
-        </div>
-      </Link>
-      <Link to="/bookings" className="group p-6 bg-card border border-border hover:border-primary transition-all hover:shadow-lg relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-16 h-16 bg-primary/5 rounded-bl-[60px] transition-transform group-hover:scale-110"></div>
-        <div className="relative z-10 text-primary group-hover:text-primary transition-colors">
-          <h3 className="text-lg font-serif font-bold mb-1">My Bookings</h3>
-          <p className="text-xs text-muted-foreground font-light mb-4">Manage reservations.</p>
-          <div className="text-[10px] font-bold tracking-widest uppercase">Manage →</div>
-        </div>
-      </Link>
-      <Link to="/tickets" className="group p-6 bg-card border border-border hover:border-destructive transition-all hover:shadow-lg relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-16 h-16 bg-destructive/5 rounded-bl-[60px] transition-transform group-hover:scale-110"></div>
-        <div className="relative z-10 text-primary group-hover:text-destructive transition-colors">
-          <h3 className="text-lg font-serif font-bold mb-1">Support Tickets</h3>
-          <p className="text-xs text-muted-foreground font-light mb-4">Report technical issues.</p>
-          <div className="text-[10px] font-bold tracking-widest uppercase">Open Case →</div>
-        </div>
-      </Link>
-    </div>
-
-    <section>
-      <div className="flex justify-between items-end mb-6">
-        <h3 className="text-2xl font-serif text-primary border-l-4 border-secondary pl-4">Academic Schedule</h3>
-        <button className="text-sm font-medium text-secondary hover:underline underline-offset-4">View Full Calendar</button>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[
-          { course: 'Computer Architecture', time: '10:00 AM - 12:00 PM', location: 'Hall A', type: 'Lecture' },
-          { course: 'Software Engineering', time: '01:00 PM - 03:00 PM', location: 'Lab 3', type: 'Practical' },
-          { course: 'Advanced Algorithms', time: '04:00 PM - 05:30 PM', location: 'Hall C', type: 'Seminar' },
-        ].map((cls, i) => (
-          <div key={i} className="bg-card border border-border p-6 hover:shadow-lg hover:border-secondary transition-all group">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">{cls.type}</span>
-            <h4 className="text-lg font-bold text-primary mb-4 group-hover:text-secondary transition-colors">{cls.course}</h4>
-            <div className="flex justify-between items-center text-sm font-light">
-              <span>{cls.time}</span>
-              <span className="bg-muted px-2 py-1 rounded-sm text-xs font-medium">{cls.location}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  </div>
-);
-
-const SuperAdminDashboard = ({ stats, activity, pending, onActionComplete }: { 
-  stats: DashboardStats | null, 
-  activity: AuditLog[], 
-  pending: User[], 
-  onActionComplete: () => void 
-}) => {
-  
-  const handleAssignRole = async (userId: string, role: string) => {
-    try {
-      await api.put(`/admin/users/${userId}/role`, {
-        newRole: role,
-        reason: 'Initial assignment from dashboard queue'
-      });
-      onActionComplete();
-    } catch (error) {
-      alert('Assignment failed. Domain Admin requires full personnel console for domain selection.');
-    }
-  };
-
-  return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-6 border-t-4 border-primary bg-card shadow-sm hover:shadow-md transition-all">
-          <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-3">Total Users</h4>
-          <p className="text-4xl font-serif text-primary mb-1">{stats?.totalUsers ?? '...'}</p>
-          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Campus Personnel</p>
-        </div>
-        <div className="p-6 border-t-4 border-secondary bg-card shadow-sm hover:shadow-md transition-all">
-          <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-3">Active Domains</h4>
-          <p className="text-4xl font-serif text-primary mb-1">{stats?.activeDomains ?? '...'}</p>
-          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Operating Units</p>
-        </div>
-        <div className="p-6 border-t-4 border-destructive bg-card shadow-sm hover:shadow-md transition-all">
-          <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-3">System Alerts</h4>
-          <p className="text-4xl font-serif text-primary mb-1">{stats?.systemAlerts ?? '0'}</p>
-          <p className="text-[10px] text-destructive font-bold uppercase tracking-wider">Suspended Access</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <section>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-serif text-primary border-l-4 border-primary pl-4">System Audit Feed</h3>
-            <Link to="/admin/audit" className="text-[10px] font-bold uppercase tracking-widest text-secondary hover:underline">Full Log →</Link>
-          </div>
-          <div className="space-y-0 border border-border bg-card shadow-sm max-h-[350px] overflow-y-auto">
-            {activity.length === 0 ? (
-               <div className="p-8 text-center text-muted-foreground font-light italic text-sm">No recent activities recorded.</div>
-            ) : (
-              activity.map((log) => (
-                <div key={log.id} className="p-4 border-b border-border flex gap-4 items-center group hover:bg-muted/30 transition-colors">
-                  <div className="text-[10px] text-muted-foreground font-mono min-w-[85px] leading-tight">
-                    {format(new Date(log.changedAt), 'MMM dd')} <br />
-                    <span className="opacity-60">{format(new Date(log.changedAt), 'HH:mm')}</span>
-                  </div>
-                  <div className="text-xs font-medium text-primary/80">
-                     <span className="font-bold text-primary">{log.userEmail}</span> transitioned to <span className="text-secondary font-bold">
-                       {log.newRole.replace('_', ' ')} {log.newDomainName ? `(${log.newDomainName})` : ''}
-                     </span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        <section>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-serif text-primary border-l-4 border-secondary pl-4">Pending Clearance</h3>
-            <span className="bg-secondary/10 text-secondary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest">
-              {pending.length} Waiting
-            </span>
-          </div>
-          <div className="bg-card border border-border shadow-sm overflow-hidden flex flex-col max-h-[350px]">
-            {pending.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-                <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4 text-muted-foreground/40">
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="square" strokeLinejoin="miter" strokeWidth="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                </div>
-                <p className="text-sm font-serif text-primary font-bold">Queue Clear</p>
-                <p className="text-xs text-muted-foreground font-light">All staff accounts are currently active.</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-border overflow-y-auto">
-                {pending.map((p) => (
-                  <div key={p.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-muted/20 transition-colors">
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-primary truncate">{p.fullName}</p>
-                      <p className="text-[10px] text-muted-foreground truncate">{p.email}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Select onValueChange={(val) => {
-                        if (val === 'DOMAIN_ADMIN') {
-                          window.location.href = '/admin/users';
-                        } else {
-                          handleAssignRole(p.id, val);
-                        }
-                      }}>
-                        <SelectTrigger className="h-8 w-28 text-[10px] font-bold uppercase tracking-wider rounded-none">
-                          <SelectValue placeholder="CLEAR AS..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="TECHNICIAN">Technician</SelectItem>
-                          <SelectItem value="DOMAIN_ADMIN">Domain Admin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button variant="ghost" size="sm" asChild className="h-8 text-[10px] font-bold uppercase tracking-widest">
-                        <Link to="/admin/users">Full Profile</Link>
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="p-3 bg-muted/30 border-t border-border mt-auto">
-               <p className="text-[9px] text-center text-muted-foreground uppercase tracking-widest font-medium">
-                 Authorized staff must be vetted before granting system-wide access.
-               </p>
-            </div>
-          </div>
-        </section>
-      </div>
-    </div>
-  );
-};
-
-const DomainAdminDashboard = () => (
-  <div className="p-12 text-center text-muted-foreground italic">Domain Admin Console (Optimizing Space...)</div>
-);
-
-const TechnicianDashboard = () => (
-  <div className="p-12 text-center text-muted-foreground italic">Technician Console (Optimizing Space...)</div>
-);
 
 export default DashboardPage;

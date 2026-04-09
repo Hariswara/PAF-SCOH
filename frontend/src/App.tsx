@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { AuthGuard, GuestGuard } from '@/components/auth/AuthGuard';
+import AppLayout from '@/components/layout/AppLayout';
 
 // Pages
 import LoginPage from '@/pages/LoginPage';
@@ -12,111 +13,82 @@ import DomainManagementPage from '@/pages/admin/DomainManagementPage';
 import AuditLogPage from '@/pages/admin/AuditLogPage';
 import BookingsPage from '@/pages/BookingsPage';
 import ResourcesPage from '@/pages/ResourcesPage';
-import TicketsPage from '@/pages/TicketsPage';
+import ProfilePage from '@/pages/ProfilePage';
+
+// Tickets
+import TicketListPage from '@/pages/tickets/TicketListPage';
+import CreateTicketPage from '@/pages/tickets/CreateTicketPage';
+
+/** Wraps a page with AuthGuard + the shared sidebar layout */
+function ProtectedPage({
+  children,
+  allowedRoles,
+}: {
+  children: React.ReactNode;
+  allowedRoles?: string[];
+}) {
+  return (
+    <AuthGuard allowedRoles={allowedRoles}>
+      <AppLayout>{children}</AppLayout>
+    </AuthGuard>
+  );
+}
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public / Guest Routes */}
-          <Route 
-            path="/login" 
+          {/* ── Public / Guest ── */}
+          <Route
+            path="/login"
             element={
               <GuestGuard>
                 <LoginPage />
               </GuestGuard>
-            } 
+            }
           />
 
-          {/* Status Pages */}
-          <Route path="/suspended" element={<SuspendedPage />} />
+          {/* ── Status pages (standalone, no sidebar) ── */}
+          <Route path="/suspended"    element={<SuspendedPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
-          
-          <Route 
-            path="/pending-activation" 
+          <Route
+            path="/pending-activation"
             element={
               <AuthGuard>
                 <PendingActivationPage />
               </AuthGuard>
-            } 
+            }
           />
 
-          {/* Registration Flow */}
-          <Route 
-            path="/register" 
+          {/* ── Registration flow (standalone) ── */}
+          <Route
+            path="/register"
             element={
               <AuthGuard>
                 <RegisterPage />
               </AuthGuard>
-            } 
+            }
           />
 
-          {/* Core App Routes (Available to all ACTIVE users) */}
-          <Route 
-            path="/dashboard" 
-            element={
-              <AuthGuard>
-                <DashboardPage />
-              </AuthGuard>
-            } 
-          />
-          <Route 
-            path="/bookings" 
-            element={
-              <AuthGuard>
-                <BookingsPage />
-              </AuthGuard>
-            } 
-          />
-          <Route 
-            path="/resources" 
-            element={
-              <AuthGuard>
-                <ResourcesPage />
-              </AuthGuard>
-            } 
-          />
-          <Route 
-            path="/tickets" 
-            element={
-              <AuthGuard>
-                <TicketsPage />
-              </AuthGuard>
-            } 
-          />
+          {/* ── Core app (sidebar layout) ── */}
+          <Route path="/dashboard" element={<ProtectedPage><DashboardPage /></ProtectedPage>} />
+          <Route path="/bookings"  element={<ProtectedPage><BookingsPage /></ProtectedPage>} />
+          <Route path="/resources" element={<ProtectedPage><ResourcesPage /></ProtectedPage>} />
+          <Route path="/profile"   element={<ProtectedPage><ProfilePage /></ProtectedPage>} />
 
-          {/* Admin Specific Routes */}
-          <Route 
-            path="/admin/users" 
-            element={
-              <AuthGuard allowedRoles={['SUPER_ADMIN']}>
-                <UserManagementPage />
-              </AuthGuard>
-            } 
-          />
-          <Route 
-            path="/admin/domains" 
-            element={
-              <AuthGuard allowedRoles={['SUPER_ADMIN']}>
-                <DomainManagementPage />
-              </AuthGuard>
-            } 
-          />
-          <Route 
-            path="/admin/audit" 
-            element={
-              <AuthGuard allowedRoles={['SUPER_ADMIN']}>
-                <AuditLogPage />
-              </AuthGuard>
-            } 
-          />
+          {/* ── Tickets ── */}
+          <Route path="/tickets"     element={<ProtectedPage><TicketListPage /></ProtectedPage>} />
+          <Route path="/tickets/new" element={<ProtectedPage><CreateTicketPage /></ProtectedPage>} />
 
-          {/* Root Redirect */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          {/* ── Admin (sidebar layout) ── */}
+          <Route path="/admin/users"   element={<ProtectedPage allowedRoles={['SUPER_ADMIN']}><UserManagementPage /></ProtectedPage>} />
+          <Route path="/admin/domains" element={<ProtectedPage allowedRoles={['SUPER_ADMIN']}><DomainManagementPage /></ProtectedPage>} />
+          <Route path="/admin/audit"   element={<ProtectedPage allowedRoles={['SUPER_ADMIN']}><AuditLogPage /></ProtectedPage>} />
+
+          {/* ── Redirects ── */}
+          <Route path="/"  element={<Navigate to="/dashboard" replace />} />
+          <Route path="*"  element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
