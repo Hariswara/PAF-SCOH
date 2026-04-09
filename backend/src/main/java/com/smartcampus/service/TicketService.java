@@ -171,7 +171,7 @@ public class TicketService {
                 User currentUser = resolveUser(principal);
                 Ticket ticket = findTicket(ticketId);
 
-                validateStatusTransition(ticket.status(), request.status(), currentUser);
+                validateStatusTransition(ticket.status(), request.status(), currentUser, ticketId);
 
                 String rejectionReason = ticket.rejectionReason();
                 if (request.status() == TicketStatus.REJECTED) {
@@ -277,7 +277,7 @@ public class TicketService {
 
         // HELPERS
 
-        private void validateStatusTransition(TicketStatus current, TicketStatus next, User actor) {
+        private void validateStatusTransition(TicketStatus current, TicketStatus next, User actor, UUID ticketId) {
                 // Technicians can move OPEN→IN_PROGRESS→RESOLVED
                 // Admins can do all transitions including REJECTED and CLOSED
                 boolean isAdmin = isAdmin(actor);
@@ -303,8 +303,18 @@ public class TicketService {
                                         throw new UnauthorizedActionException("Only admin can close tickets");
                         }
                         case REJECTED -> {
-                                if (!isAdmin)
+                                if (!isAdmin(actor))
                                         throw new UnauthorizedActionException("Only admin can reject tickets");
+                                // Domain admins may only reject tickets belonging to their own domain
+                                if (actor.role() == UserRole.DOMAIN_ADMIN) {
+                                        Ticket t = ticketRepository.findById(ticketId)
+                                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                                        "Ticket not found"));
+                                        if (t.domainId() == null || !t.domainId().equals(actor.domainId())) {
+                                                throw new UnauthorizedActionException(
+                                                                "Domain admins can only reject tickets in their own domain");
+                                        }
+                                }
                         }
                         default -> throw new IllegalStateException("Invalid target status: " + next);
                 }

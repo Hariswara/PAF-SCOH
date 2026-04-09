@@ -46,6 +46,11 @@ const TicketDetailPage: React.FC = () => {
     const isTechnician = user?.role === 'TECHNICIAN';
     const isOwner = ticket?.createdBy === user?.id;
     const isAssignedTech = isTechnician && ticket?.assignedTo === user?.id;
+    const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+    const isDomainAdmin = user?.role === 'DOMAIN_ADMIN';
+    // Domain admins can only reject if the ticket belongs to their domain
+    const canReject = isSuperAdmin || (isDomainAdmin && (ticket.domainId === user?.domainId || !ticket.domainId));
+
 
     // Workflow state
     const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -147,8 +152,9 @@ const TicketDetailPage: React.FC = () => {
     // Compute available next statuses
     let nextStatuses: TicketStatus[] = [];
     if (isAdmin) {
-        nextStatuses = [...(STAFF_TRANSITIONS[ticket.status] ?? []), ...ADMIN_EXTRA]
-            .filter((s) => s !== ticket.status);
+        const baseTransitions = STAFF_TRANSITIONS[ticket.status] ?? [];
+        const adminExtras = canReject ? [...ADMIN_EXTRA] : [];
+        nextStatuses = [...baseTransitions, ...adminExtras].filter((s) => s !== ticket.status);
     } else if (isAssignedTech) {
         nextStatuses = STAFF_TRANSITIONS[ticket.status] ?? [];
     }
