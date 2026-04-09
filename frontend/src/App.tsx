@@ -9,6 +9,7 @@ import RegisterPage from '@/pages/RegisterPage';
 import { PendingActivationPage, SuspendedPage, UnauthorizedPage } from '@/pages/StatusPages';
 import UserManagementPage from '@/pages/admin/UserManagementPage';
 import DomainManagementPage from '@/pages/admin/DomainManagementPage';
+import ResourcesPage from '@/pages/ResourcesPage';
 
 function App() {
   return (
@@ -54,6 +55,15 @@ function App() {
             element={
               <AuthGuard>
                 <DashboardPage />
+              </AuthGuard>
+            } 
+          />
+
+          <Route 
+            path="/resources" 
+            element={
+              <AuthGuard>
+                <ResourcesPage />
               </AuthGuard>
             } 
           />
