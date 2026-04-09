@@ -4,12 +4,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTicket } from '@/hooks/useTickets';
 import { ticketApi } from '@/lib/ticketApi';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { TicketStatusBadge } from '@/components/tickets/TicketStatusBadge';
 import { TicketPriorityBadge } from '@/components/tickets/TicketPriorityBadge';
+import { TicketComments } from '@/components/tickets/TicketComments';
 import { AttachmentUploader } from '@/components/tickets/AttachmentUploader';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -333,6 +335,9 @@ const TicketDetailPage: React.FC = () => {
                             </p>
                         </section>
                     )}
+
+                    {/* Comments */}
+                    <TicketComments ticketId={ticket.id} currentUserId={user?.id ?? ''} />
                 </div>
 
                 {/* Sidebar — 1 col */}
