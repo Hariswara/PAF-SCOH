@@ -4,6 +4,7 @@ import com.smartcampus.model.ResourceStatus;
 import com.smartcampus.model.ResourceType;
 import jakarta.validation.constraints.*;
 import lombok.Data;
+import java.util.UUID;
 
 @Data
 public class ResourceDTO {
@@ -26,4 +27,6 @@ public class ResourceDTO {
     private ResourceStatus status;
 
     private String description;
+
+    private UUID domainId;
 }

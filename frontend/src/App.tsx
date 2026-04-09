@@ -13,6 +13,7 @@ import AuditLogPage from '@/pages/admin/AuditLogPage';
 import BookingsPage from '@/pages/BookingsPage';
 import ResourcesPage from '@/pages/ResourcesPage';
 import TicketsPage from '@/pages/TicketsPage';
+import CreateResourcePage from '@/pages/CreateResourcePage';
 
 
 function App() {
@@ -78,6 +79,16 @@ function App() {
               </AuthGuard>
             } 
           />
+
+          <Route
+            path="/resources/create"
+            element={
+              <AuthGuard>
+                <CreateResourcePage />
+              </AuthGuard>
+            }
+          />
+
           <Route 
             path="/tickets" 
             element={

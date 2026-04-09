@@ -1,7 +1,5 @@
 package com.smartcampus.model;
 
-import com.smartcampus.model.ResourceStatus;
-import com.smartcampus.model.ResourceType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -23,7 +21,7 @@ public class Resource {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, unique = true, columnDefinition = "VARCHAR(255)")
     private String name;
 
     @Enumerated(EnumType.STRING)
@@ -32,16 +30,21 @@ public class Resource {
 
     private Integer capacity;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "VARCHAR(255)")
     private String location;
 
+    @Column(columnDefinition = "VARCHAR(255)")
     private String availabilityWindows;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ResourceStatus status;
 
+    @Column(columnDefinition = "TEXT")
     private String description;
+
+    @Column(name = "domain_id")
+    private UUID domainId;
 
     @CreationTimestamp
     @Column(updatable = false)
