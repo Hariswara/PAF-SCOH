@@ -12,7 +12,10 @@ import DomainManagementPage from '@/pages/admin/DomainManagementPage';
 import AuditLogPage from '@/pages/admin/AuditLogPage';
 import BookingsPage from '@/pages/BookingsPage';
 import ResourcesPage from '@/pages/ResourcesPage';
-import TicketsPage from '@/pages/TicketsPage';
+
+//tickets
+import TicketListPage from '@/pages/tickets/TicketListPage';
+import CreateTicketPage from '@/pages/tickets/CreateTicketPage';
 
 function App() {
   return (
@@ -20,101 +23,112 @@ function App() {
       <BrowserRouter>
         <Routes>
           {/* Public / Guest Routes */}
-          <Route 
-            path="/login" 
+          <Route
+            path="/login"
             element={
               <GuestGuard>
                 <LoginPage />
               </GuestGuard>
-            } 
+            }
           />
 
           {/* Status Pages */}
           <Route path="/suspended" element={<SuspendedPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
-          
-          <Route 
-            path="/pending-activation" 
+
+          <Route
+            path="/pending-activation"
             element={
               <AuthGuard>
                 <PendingActivationPage />
               </AuthGuard>
-            } 
+            }
           />
 
           {/* Registration Flow */}
-          <Route 
-            path="/register" 
+          <Route
+            path="/register"
             element={
               <AuthGuard>
                 <RegisterPage />
               </AuthGuard>
-            } 
+            }
           />
 
           {/* Core App Routes (Available to all ACTIVE users) */}
-          <Route 
-            path="/dashboard" 
+          <Route
+            path="/dashboard"
             element={
               <AuthGuard>
                 <DashboardPage />
               </AuthGuard>
-            } 
+            }
           />
-          <Route 
-            path="/bookings" 
+          <Route
+            path="/bookings"
             element={
               <AuthGuard>
                 <BookingsPage />
               </AuthGuard>
-            } 
+            }
           />
-          <Route 
-            path="/resources" 
+          <Route
+            path="/resources"
             element={
               <AuthGuard>
                 <ResourcesPage />
               </AuthGuard>
-            } 
-          />
-          <Route 
-            path="/tickets" 
-            element={
-              <AuthGuard>
-                <TicketsPage />
-              </AuthGuard>
-            } 
+            }
           />
 
           {/* Admin Specific Routes */}
-          <Route 
-            path="/admin/users" 
+          <Route
+            path="/admin/users"
             element={
               <AuthGuard allowedRoles={['SUPER_ADMIN']}>
                 <UserManagementPage />
               </AuthGuard>
-            } 
+            }
           />
-          <Route 
-            path="/admin/domains" 
+          <Route
+            path="/admin/domains"
             element={
               <AuthGuard allowedRoles={['SUPER_ADMIN']}>
                 <DomainManagementPage />
               </AuthGuard>
-            } 
+            }
           />
-          <Route 
-            path="/admin/audit" 
+          <Route
+            path="/admin/audit"
             element={
               <AuthGuard allowedRoles={['SUPER_ADMIN']}>
                 <AuditLogPage />
               </AuthGuard>
-            } 
+            }
+          />
+
+          {/* Ticket Routes */}
+          <Route
+            path="/tickets"
+            element={
+              <AuthGuard>
+                <TicketListPage />
+              </AuthGuard>
+            }
+          />
+
+          <Route
+            path="/tickets/new"
+            element={
+              <AuthGuard>
+                <CreateTicketPage />
+              </AuthGuard>
+            }
           />
 
           {/* Root Redirect */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          
+
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
