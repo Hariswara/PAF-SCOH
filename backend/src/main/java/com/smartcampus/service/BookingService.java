@@ -46,9 +46,7 @@ public class BookingService {
         booking.setExpectedAttendees(request.getExpectedAttendees());
         booking.setStatus(BookingStatus.PENDING);
 
-        // real user association
         booking.setCreatedBy(currentUser.email());
-
         booking.setCreatedAt(LocalDateTime.now());
         booking.setUpdatedAt(LocalDateTime.now());
 
@@ -93,6 +91,56 @@ public class BookingService {
         booking.setStatus(request.getStatus());
         booking.setReviewedBy(currentUser.email());
         booking.setReviewedAt(LocalDateTime.now());
+        booking.setUpdatedAt(LocalDateTime.now());
+
+        Booking saved = bookingRepository.save(booking);
+
+        return new BookingResponse(
+                saved.getId(),
+                saved.getResourceId(),
+                saved.getDate(),
+                saved.getStartTime(),
+                saved.getEndTime(),
+                saved.getPurpose(),
+                saved.getExpectedAttendees(),
+                saved.getStatus().name()
+        );
+    }
+
+    public BookingResponse cancelBooking(Long id) {
+
+        Booking booking = bookingRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+
+        User currentUser = authService.getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalArgumentException("Authenticated user not found");
+        }
+
+        boolean isAdmin = currentUser.role() == UserRole.DOMAIN_ADMIN ||
+                          currentUser.role() == UserRole.SUPER_ADMIN;
+
+        boolean isOwner = booking.getCreatedBy() != null &&
+                          booking.getCreatedBy().equals(currentUser.email());
+
+        if (booking.getStatus() == BookingStatus.REJECTED ||
+            booking.getStatus() == BookingStatus.CANCELLED) {
+            throw new IllegalStateException("This booking cannot be cancelled");
+        }
+
+        if (booking.getStatus() == BookingStatus.PENDING) {
+            if (!isOwner) {
+                throw new IllegalStateException("Only the booking owner can cancel a pending booking");
+            }
+        }
+
+        if (booking.getStatus() == BookingStatus.APPROVED) {
+            if (!isOwner && !isAdmin) {
+                throw new IllegalStateException("Only the booking owner or an admin can cancel this booking");
+            }
+        }
+
+        booking.setStatus(BookingStatus.CANCELLED);
         booking.setUpdatedAt(LocalDateTime.now());
 
         Booking saved = bookingRepository.save(booking);

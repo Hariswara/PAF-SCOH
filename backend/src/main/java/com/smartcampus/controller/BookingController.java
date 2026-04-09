@@ -35,4 +35,9 @@ public class BookingController {
             @Valid @RequestBody ReviewBookingRequest request) {
         return bookingService.reviewBooking(id, request);
     }
+
+    @PatchMapping("/{id}/cancel")
+    public BookingResponse cancelBooking(@PathVariable Long id) {
+        return bookingService.cancelBooking(id);
+    }
 }
