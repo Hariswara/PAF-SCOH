@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/resources")
@@ -21,5 +22,16 @@ public class ResourceController {
             @Valid @RequestBody ResourceDTO dto) {
         ResourceResponseDTO response = resourceService.createResource(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<ResourceResponseDTO>> getResources(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String location,
+            @RequestParam(required = false) Integer capacity,
+            @RequestParam(required = false) String type) {
+        return ResponseEntity.ok(
+            resourceService.searchResources(name, location, capacity, type)
+        );
     }
 }

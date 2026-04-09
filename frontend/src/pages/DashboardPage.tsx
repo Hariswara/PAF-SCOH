@@ -152,7 +152,8 @@ const DashboardPage: React.FC = () => {
                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Updating...</span>
             </div>
           )}
-        </header>
+          </div>
+        <main className="flex-1 p-8">
 
         {user?.role === 'STUDENT' && <StudentDashboard />}
         {user?.role === 'DOMAIN_ADMIN' && <DomainAdminDashboard />}

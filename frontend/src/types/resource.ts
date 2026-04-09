@@ -9,6 +9,7 @@ export interface ResourceDTO {
   availabilityWindows: string;
   status: ResourceStatus;
   description: string;
+  domainId: string; 
 }
 
 export interface ResourceResponse extends ResourceDTO {

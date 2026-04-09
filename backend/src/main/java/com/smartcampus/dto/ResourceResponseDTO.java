@@ -8,6 +8,7 @@ import lombok.Data;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+
 @Data
 @Builder
 public class ResourceResponseDTO {
@@ -21,4 +22,5 @@ public class ResourceResponseDTO {
     private String description;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
+    private UUID domainId;
 }
