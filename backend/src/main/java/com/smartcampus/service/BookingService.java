@@ -122,18 +122,22 @@ public class BookingService {
             throw new IllegalArgumentException("Authenticated user not found");
         }
 
-        if (currentUser.role() != UserRole.DOMAIN_ADMIN &&
-            currentUser.role() != UserRole.SUPER_ADMIN) {
+        boolean isAdmin = currentUser.role() == UserRole.DOMAIN_ADMIN ||
+                          currentUser.role() == UserRole.SUPER_ADMIN;
+
+        if (!isAdmin) {
             throw new IllegalStateException("Only admin users can review bookings");
         }
 
         if (booking.getStatus() != BookingStatus.PENDING) {
-            throw new IllegalStateException("Only pending bookings can be reviewed");
+            throw new IllegalStateException(
+                    "Invalid status transition. Only PENDING bookings can be reviewed");
         }
 
         if (request.getStatus() != BookingStatus.APPROVED &&
             request.getStatus() != BookingStatus.REJECTED) {
-            throw new IllegalArgumentException("Review status must be APPROVED or REJECTED");
+            throw new IllegalArgumentException(
+                    "Invalid status transition. PENDING bookings can only transition to APPROVED or REJECTED");
         }
 
         booking.setStatus(request.getStatus());
@@ -163,19 +167,23 @@ public class BookingService {
 
         if (booking.getStatus() == BookingStatus.REJECTED ||
             booking.getStatus() == BookingStatus.CANCELLED) {
-            throw new IllegalStateException("This booking cannot be cancelled");
+            throw new IllegalStateException(
+                    "Invalid status transition. This booking cannot be cancelled");
         }
 
         if (booking.getStatus() == BookingStatus.PENDING) {
             if (!isOwner) {
-                throw new IllegalStateException("Only the booking owner can cancel a pending booking");
+                throw new IllegalStateException(
+                        "Invalid status transition. Only the booking owner can cancel a pending booking");
             }
-        }
-
-        if (booking.getStatus() == BookingStatus.APPROVED) {
+        } else if (booking.getStatus() == BookingStatus.APPROVED) {
             if (!isOwner && !isAdmin) {
-                throw new IllegalStateException("Only the booking owner or an admin can cancel this booking");
+                throw new IllegalStateException(
+                        "Invalid status transition. Only the booking owner or an admin can cancel an approved booking");
             }
+        } else {
+            throw new IllegalStateException(
+                    "Invalid status transition. This booking cannot be cancelled");
         }
 
         booking.setStatus(BookingStatus.CANCELLED);
