@@ -17,14 +17,11 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import type { TicketStatus } from '@/types/ticket';
 
-const ALLOWED_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
+const STAFF_TRANSITIONS: Partial<Record<TicketStatus, TicketStatus[]>> = {
     OPEN: ['IN_PROGRESS'],
     IN_PROGRESS: ['RESOLVED'],
     RESOLVED: ['CLOSED'],
-    CLOSED: [],
-    REJECTED: [],
 };
-
 const ADMIN_EXTRA: TicketStatus[] = ['REJECTED'];
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
@@ -49,6 +46,11 @@ const TicketDetailPage: React.FC = () => {
     const isTechnician = user?.role === 'TECHNICIAN';
     const isOwner = ticket?.createdBy === user?.id;
     const isAssignedTech = isTechnician && ticket?.assignedTo === user?.id;
+    const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+    const isDomainAdmin = user?.role === 'DOMAIN_ADMIN';
+    // Domain admins can only reject if the ticket belongs to their domain
+    const canReject = isSuperAdmin || (isDomainAdmin && (ticket.domainId === user?.domainId || !ticket.domainId));
+
 
     // Workflow state
     const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -148,10 +150,14 @@ const TicketDetailPage: React.FC = () => {
     }
 
     // Compute available next statuses
-    let nextStatuses: TicketStatus[] = ALLOWED_TRANSITIONS[ticket.status] ?? [];
-    if (isAdmin) nextStatuses = [...nextStatuses, ...ADMIN_EXTRA].filter((s) => s !== ticket.status);
-    // Technicians can only advance if assigned to the ticket
-    if (isTechnician && !isAssignedTech) nextStatuses = [];
+    let nextStatuses: TicketStatus[] = [];
+    if (isAdmin) {
+        const baseTransitions = STAFF_TRANSITIONS[ticket.status] ?? [];
+        const adminExtras = canReject ? [...ADMIN_EXTRA] : [];
+        nextStatuses = [...baseTransitions, ...adminExtras].filter((s) => s !== ticket.status);
+    } else if (isAssignedTech) {
+        nextStatuses = STAFF_TRANSITIONS[ticket.status] ?? [];
+    }
 
     const canAddResolution = (isAssignedTech || isAdmin) && ticket.status !== 'CLOSED' && ticket.status !== 'REJECTED';
     const canAssign = isAdmin && ticket.status !== 'CLOSED' && ticket.status !== 'REJECTED';
