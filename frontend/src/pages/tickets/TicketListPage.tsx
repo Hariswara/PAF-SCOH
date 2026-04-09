@@ -100,6 +100,7 @@ function TicketTable({ tickets, isLoading }: { tickets: TicketResponse[]; isLoad
 
 const TicketListPage: React.FC = () => {
     const { user } = useAuth();
+    const canCreateTicket = user?.role === 'STUDENT' || user?.role === 'DOMAIN_ADMIN';
     const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'DOMAIN_ADMIN';
     const isTechnician = user?.role === 'TECHNICIAN';
 
@@ -128,11 +129,13 @@ const TicketListPage: React.FC = () => {
                                 Report and track facility incidents and technical issues across campus.
                             </p>
                         </div>
-                        <Link to="/tickets/new">
-                            <Button className="h-10 bg-secondary text-white hover:bg-secondary/80 font-bold tracking-widest uppercase text-xs flex items-center gap-2">
-                                <PlusIcon className="size-4" /> New Ticket
-                            </Button>
-                        </Link>
+                        {canCreateTicket && (
+                            <Link to="/tickets/new">
+                                <Button className="h-10 bg-secondary text-white hover:bg-secondary/80 font-bold tracking-widest uppercase text-xs flex items-center gap-2">
+                                    <PlusIcon className="size-4" /> New Ticket
+                                </Button>
+                            </Link>
+                        )}
                     </div>
                 </div>
             </header>
@@ -140,7 +143,7 @@ const TicketListPage: React.FC = () => {
             <main className="max-w-7xl mx-auto px-8">
                 <Tabs value={tab} onValueChange={setTab}>
                     <TabsList className="mb-6">
-                        {(isAdmin || !isTechnician) && (
+                        {user?.role !== 'SUPER_ADMIN' && user?.role !== 'DOMAIN_ADMIN' && !isTechnician && (
                             <TabsTrigger value="mine">
                                 <TicketIcon className="size-4" /> My Tickets
                             </TabsTrigger>

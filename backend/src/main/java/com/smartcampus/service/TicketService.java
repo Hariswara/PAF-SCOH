@@ -52,6 +52,10 @@ public class TicketService {
         public TicketResponse createTicket(CreateTicketRequest request, OAuth2User principal) {
                 User currentUser = resolveUser(principal);
 
+                if (currentUser.role() != UserRole.STUDENT && currentUser.role() != UserRole.DOMAIN_ADMIN) {
+                        throw new UnauthorizedActionException("Only students and domain admins may create tickets");
+                }
+
                 Ticket ticket = new Ticket(
                                 null,
                                 currentUser.id(),

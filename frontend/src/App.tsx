@@ -80,7 +80,7 @@ function App() {
 
           {/* ── Tickets ── */}
           <Route path="/tickets" element={<ProtectedPage><TicketListPage /></ProtectedPage>} />
-          <Route path="/tickets/new" element={<ProtectedPage><CreateTicketPage /></ProtectedPage>} />
+          <Route path="/tickets/new" element={<ProtectedPage allowedRoles={['STUDENT', 'DOMAIN_ADMIN']}><CreateTicketPage /></ProtectedPage>} />
           <Route path="/tickets/:id" element={<ProtectedPage><TicketDetailPage /></ProtectedPage>} />
 
           {/* ── Admin (sidebar layout) ── */}
