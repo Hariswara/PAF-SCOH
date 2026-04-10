@@ -13,7 +13,6 @@ import com.smartcampus.repository.TicketCommentRepository;
 import com.smartcampus.repository.TicketRepository;
 import com.smartcampus.repository.UserRepository;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,20 +26,23 @@ public class TicketCommentService {
     private final TicketCommentRepository commentRepository;
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
+    private final AuthService authService;
     private final ApplicationEventPublisher eventPublisher;
 
     public TicketCommentService(TicketCommentRepository commentRepository,
             TicketRepository ticketRepository,
             UserRepository userRepository,
+            AuthService authService,
             ApplicationEventPublisher eventPublisher) {
         this.commentRepository = commentRepository;
         this.ticketRepository = ticketRepository;
         this.userRepository = userRepository;
+        this.authService = authService;
         this.eventPublisher = eventPublisher;
     }
 
-    public CommentResponse addComment(UUID ticketId, CreateCommentRequest request, OAuth2User principal) {
-        User currentUser = resolveUser(principal);
+    public CommentResponse addComment(UUID ticketId, CreateCommentRequest request) {
+        User currentUser = resolveUser();
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket not found: " + ticketId));
 
@@ -64,8 +66,8 @@ public class TicketCommentService {
     }
 
     public CommentResponse editComment(UUID ticketId, UUID commentId,
-            CreateCommentRequest request, OAuth2User principal) {
-        User currentUser = resolveUser(principal);
+            CreateCommentRequest request) {
+        User currentUser = resolveUser();
         TicketComment existing = findComment(ticketId, commentId);
 
         if (!existing.authorId().equals(currentUser.id())) {
@@ -78,8 +80,8 @@ public class TicketCommentService {
         return toResponse(commentRepository.save(updated));
     }
 
-    public void deleteComment(UUID ticketId, UUID commentId, OAuth2User principal) {
-        User currentUser = resolveUser(principal);
+    public void deleteComment(UUID ticketId, UUID commentId) {
+        User currentUser = resolveUser();
         TicketComment comment = findComment(ticketId, commentId);
 
         boolean isOwner = comment.authorId().equals(currentUser.id());
@@ -101,10 +103,12 @@ public class TicketCommentService {
         return comment;
     }
 
-    private User resolveUser(OAuth2User principal) {
-        String email = principal.getAttribute("email");
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found"));
+    private User resolveUser() {
+        User user = authService.getCurrentUser();
+        if (user == null) {
+            throw new ResourceNotFoundException("Authenticated user not found");
+        }
+        return user;
     }
 
     private CommentResponse toResponse(TicketComment c) {

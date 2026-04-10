@@ -5,8 +5,6 @@ import com.smartcampus.service.TicketService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -24,103 +22,79 @@ public class TicketController {
         this.ticketService = ticketService;
     }
 
-    /** POST /api/tickets */
     @PostMapping
     public ResponseEntity<TicketResponse> createTicket(
-            @Valid @RequestBody CreateTicketRequest request,
-            @AuthenticationPrincipal OAuth2User principal) {
+            @Valid @RequestBody CreateTicketRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ticketService.createTicket(request, principal));
+                .body(ticketService.createTicket(request));
     }
 
-    /**
-     * GET /api/tickets
-     * Fix #6 — passes principal so DOMAIN_ADMIN is scoped to their domain.
-     */
     @GetMapping
-    public ResponseEntity<List<TicketResponse>> getAllTickets(
-            @AuthenticationPrincipal OAuth2User principal) {
-        return ResponseEntity.ok(ticketService.getAllTickets(principal));
+    public ResponseEntity<List<TicketResponse>> getAllTickets() {
+        return ResponseEntity.ok(ticketService.getAllTickets());
     }
 
-    /** GET /api/tickets/mine */
     @GetMapping("/mine")
-    public ResponseEntity<List<TicketResponse>> getMyTickets(
-            @AuthenticationPrincipal OAuth2User principal) {
-        return ResponseEntity.ok(ticketService.getMyTickets(principal));
+    public ResponseEntity<List<TicketResponse>> getMyTickets() {
+        return ResponseEntity.ok(ticketService.getMyTickets());
     }
 
-    /** GET /api/tickets/assigned */
     @GetMapping("/assigned")
-    public ResponseEntity<List<TicketResponse>> getAssignedTickets(
-            @AuthenticationPrincipal OAuth2User principal) {
-        return ResponseEntity.ok(ticketService.getAssignedTickets(principal));
+    public ResponseEntity<List<TicketResponse>> getAssignedTickets() {
+        return ResponseEntity.ok(ticketService.getAssignedTickets());
     }
 
-    /** GET /api/tickets/{id} */
     @GetMapping("/{id}")
     public ResponseEntity<TicketResponse> getTicket(@PathVariable UUID id) {
         return ResponseEntity.ok(ticketService.getTicket(id));
     }
 
-    /** GET /api/tickets/{id}/linked-reports */
     @GetMapping("/{id}/linked-reports")
     public ResponseEntity<List<TicketResponse>> getLinkedReports(@PathVariable UUID id) {
         return ResponseEntity.ok(ticketService.getLinkedReports(id));
     }
 
-    /** PATCH /api/tickets/{id}/status */
     @PatchMapping("/{id}/status")
     public ResponseEntity<TicketResponse> updateStatus(
             @PathVariable UUID id,
-            @Valid @RequestBody UpdateTicketStatusRequest request,
-            @AuthenticationPrincipal OAuth2User principal) {
-        return ResponseEntity.ok(ticketService.updateStatus(id, request, principal));
+            @Valid @RequestBody UpdateTicketStatusRequest request) {
+        return ResponseEntity.ok(ticketService.updateStatus(id, request));
     }
 
-    /** PATCH /api/tickets/{id}/assign */
     @PatchMapping("/{id}/assign")
     public ResponseEntity<TicketResponse> assignTechnician(
             @PathVariable UUID id,
-            @Valid @RequestBody AssignTechnicianRequest request,
-            @AuthenticationPrincipal OAuth2User principal) {
-        return ResponseEntity.ok(ticketService.assignTechnician(id, request.technicianId(), principal));
+            @Valid @RequestBody AssignTechnicianRequest request) {
+        return ResponseEntity.ok(ticketService.assignTechnician(id, request.technicianId()));
     }
 
-    /** PATCH /api/tickets/{id}/resolution */
     @PatchMapping("/{id}/resolution")
     public ResponseEntity<TicketResponse> addResolutionNotes(
             @PathVariable UUID id,
-            @Valid @RequestBody ResolutionNotesRequest request,
-            @AuthenticationPrincipal OAuth2User principal) {
-        return ResponseEntity.ok(ticketService.addResolutionNotes(id, request, principal));
+            @Valid @RequestBody ResolutionNotesRequest request) {
+        return ResponseEntity.ok(ticketService.addResolutionNotes(id, request));
     }
 
     // ATTACHMENTS
 
-    /** POST /api/tickets/{id}/attachments */
     @PostMapping("/{id}/attachments")
     public ResponseEntity<AttachmentResponse> addAttachment(
             @PathVariable UUID id,
-            @RequestParam("file") MultipartFile file,
-            @AuthenticationPrincipal OAuth2User principal) throws IOException {
+            @RequestParam("file") MultipartFile file) throws IOException {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ticketService.addAttachment(id, file, principal));
+                .body(ticketService.addAttachment(id, file));
     }
 
-    /** GET /api/tickets/{id}/attachments */
     @GetMapping("/{id}/attachments")
     public ResponseEntity<List<AttachmentResponse>> getAttachments(@PathVariable UUID id) {
         return ResponseEntity.ok(ticketService.getAttachments(id));
     }
 
-    /** DELETE /api/tickets/{id}/attachments/{attachmentId} */
     @DeleteMapping("/{id}/attachments/{attachmentId}")
     public ResponseEntity<Void> deleteAttachment(
             @PathVariable UUID id,
-            @PathVariable UUID attachmentId,
-            @AuthenticationPrincipal OAuth2User principal) throws IOException {
-        ticketService.deleteAttachment(id, attachmentId, principal);
+            @PathVariable UUID attachmentId) throws IOException {
+        ticketService.deleteAttachment(id, attachmentId);
         return ResponseEntity.noContent().build();
     }
 }
