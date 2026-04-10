@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 import { AuthGuard, GuestGuard } from '@/components/auth/AuthGuard';
 import AppLayout from '@/components/layout/AppLayout';
 
@@ -14,10 +15,12 @@ import AuditLogPage from '@/pages/admin/AuditLogPage';
 import BookingsPage from '@/pages/BookingsPage';
 import ResourcesPage from '@/pages/ResourcesPage';
 import ProfilePage from '@/pages/ProfilePage';
+import NotificationsPage from '@/pages/NotificationsPage';
 
 // Tickets
 import TicketListPage from '@/pages/tickets/TicketListPage';
 import CreateTicketPage from '@/pages/tickets/CreateTicketPage';
+import TicketDetailPage from '@/pages/tickets/TicketDetailPage';
 
 /** Wraps a page with AuthGuard + the shared sidebar layout */
 function ProtectedPage({
@@ -37,6 +40,7 @@ function ProtectedPage({
 function App() {
   return (
     <AuthProvider>
+      <NotificationProvider>
       <BrowserRouter>
         <Routes>
           {/* ── Public / Guest ── */}
@@ -50,7 +54,7 @@ function App() {
           />
 
           {/* ── Status pages (standalone, no sidebar) ── */}
-          <Route path="/suspended"    element={<SuspendedPage />} />
+          <Route path="/suspended" element={<SuspendedPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
           <Route
             path="/pending-activation"
@@ -73,24 +77,27 @@ function App() {
 
           {/* ── Core app (sidebar layout) ── */}
           <Route path="/dashboard" element={<ProtectedPage><DashboardPage /></ProtectedPage>} />
-          <Route path="/bookings"  element={<ProtectedPage><BookingsPage /></ProtectedPage>} />
+          <Route path="/bookings" element={<ProtectedPage><BookingsPage /></ProtectedPage>} />
           <Route path="/resources" element={<ProtectedPage><ResourcesPage /></ProtectedPage>} />
-          <Route path="/profile"   element={<ProtectedPage><ProfilePage /></ProtectedPage>} />
+          <Route path="/profile" element={<ProtectedPage><ProfilePage /></ProtectedPage>} />
+          <Route path="/notifications" element={<ProtectedPage><NotificationsPage /></ProtectedPage>} />
 
           {/* ── Tickets ── */}
-          <Route path="/tickets"     element={<ProtectedPage><TicketListPage /></ProtectedPage>} />
-          <Route path="/tickets/new" element={<ProtectedPage><CreateTicketPage /></ProtectedPage>} />
+          <Route path="/tickets" element={<ProtectedPage><TicketListPage /></ProtectedPage>} />
+          <Route path="/tickets/new" element={<ProtectedPage allowedRoles={['STUDENT', 'DOMAIN_ADMIN']}><CreateTicketPage /></ProtectedPage>} />
+          <Route path="/tickets/:id" element={<ProtectedPage><TicketDetailPage /></ProtectedPage>} />
 
           {/* ── Admin (sidebar layout) ── */}
-          <Route path="/admin/users"   element={<ProtectedPage allowedRoles={['SUPER_ADMIN']}><UserManagementPage /></ProtectedPage>} />
+          <Route path="/admin/users" element={<ProtectedPage allowedRoles={['SUPER_ADMIN']}><UserManagementPage /></ProtectedPage>} />
           <Route path="/admin/domains" element={<ProtectedPage allowedRoles={['SUPER_ADMIN']}><DomainManagementPage /></ProtectedPage>} />
-          <Route path="/admin/audit"   element={<ProtectedPage allowedRoles={['SUPER_ADMIN']}><AuditLogPage /></ProtectedPage>} />
+          <Route path="/admin/audit" element={<ProtectedPage allowedRoles={['SUPER_ADMIN']}><AuditLogPage /></ProtectedPage>} />
 
           {/* ── Redirects ── */}
-          <Route path="/"  element={<Navigate to="/dashboard" replace />} />
-          <Route path="*"  element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

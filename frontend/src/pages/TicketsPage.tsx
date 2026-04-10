@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Ticket, AlertCircle, MessageSquare, Wrench, ArrowLeft } from 'lucide-react';
 
-const TicketsPage: React.FC = () => (
+export const TicketsPage: React.FC = () => (
   <div className="p-6 sm:p-8 max-w-[1400px] mx-auto page-enter">
 
     <Link
@@ -80,4 +80,3 @@ const TicketsPage: React.FC = () => (
   </div>
 );
 
-export default TicketsPage;

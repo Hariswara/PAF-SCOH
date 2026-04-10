@@ -43,7 +43,7 @@ class TicketCommentTests {
     void setup() {
         activeUser = userRepository.save(new User(
                 null, "google-comment-test", "comment-test@example.com", "Comment Tester",
-                null, null, null, null,
+                null, null, null, null, null, null,
                 UserRole.STUDENT, UserStatus.ACTIVE, null, null, null, null));
         ticket = ticketRepository.save(new Ticket(
                 null, activeUser.id(), null, null, "Lab 302",

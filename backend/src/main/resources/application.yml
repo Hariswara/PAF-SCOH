@@ -11,6 +11,7 @@ spring:
     init:
       mode: always
       platform: postgresql
+      continue-on-error: true
 
   security:
     oauth2:
