@@ -16,10 +16,11 @@ public record Notification(
     String message,
     String referenceId,
     String referenceType,
-    boolean isRead,
+    @org.springframework.data.relational.core.mapping.Column("is_read")
+    boolean read,
     @CreatedDate Instant createdAt
 ) {
-    public Notification withRead(boolean read) {
-        return new Notification(id, userId, type, title, message, referenceId, referenceType, read, createdAt);
+    public Notification withRead(boolean r) {
+        return new Notification(id, userId, type, title, message, referenceId, referenceType, r, createdAt);
     }
 }

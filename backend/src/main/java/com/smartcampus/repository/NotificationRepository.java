@@ -14,9 +14,9 @@ public interface NotificationRepository extends ListCrudRepository<Notification,
 
     List<Notification> findByUserIdOrderByCreatedAtDesc(UUID userId);
 
-    List<Notification> findByUserIdAndIsReadOrderByCreatedAtDesc(UUID userId, boolean isRead);
+    List<Notification> findByUserIdAndReadOrderByCreatedAtDesc(UUID userId, boolean read);
 
-    long countByUserIdAndIsRead(UUID userId, boolean isRead);
+    long countByUserIdAndRead(UUID userId, boolean read);
 
     @Modifying
     @Query("UPDATE notifications SET is_read = true WHERE user_id = :userId AND is_read = false")

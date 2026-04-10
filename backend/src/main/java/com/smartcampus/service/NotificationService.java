@@ -12,8 +12,8 @@ import com.smartcampus.repository.NotificationRepository;
 import com.smartcampus.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,16 +40,14 @@ public class NotificationService {
     // ── Event Listeners ──
 
     @Async
-    @EventListener
+    @TransactionalEventListener
     public void onTicketCreated(TicketEvent.Created event) {
-        // Notify domain admins & super admins
-        List<User> admins = userRepository.findByRoleAndStatus(UserRole.SUPER_ADMIN, UserStatus.ACTIVE);
+        List<User> admins = new java.util.ArrayList<>(
+            userRepository.findByRoleAndStatus(UserRole.SUPER_ADMIN, UserStatus.ACTIVE));
         if (event.domainId() != null) {
-            admins.addAll(
-                userRepository.findByRoleAndStatus(UserRole.DOMAIN_ADMIN, UserStatus.ACTIVE).stream()
-                    .filter(u -> event.domainId().equals(u.domainId()))
-                    .toList()
-            );
+            userRepository.findByRoleAndStatus(UserRole.DOMAIN_ADMIN, UserStatus.ACTIVE).stream()
+                .filter(u -> event.domainId().equals(u.domainId()))
+                .forEach(admins::add);
         }
 
         String creatorName = userRepository.findById(event.createdBy())
@@ -70,7 +68,7 @@ public class NotificationService {
     }
 
     @Async
-    @EventListener
+    @TransactionalEventListener
     public void onTicketAssigned(TicketEvent.Assigned event) {
         createAndPush(
             event.assignedTo(),
@@ -83,7 +81,7 @@ public class NotificationService {
     }
 
     @Async
-    @EventListener
+    @TransactionalEventListener
     public void onTicketStatusChanged(TicketEvent.StatusChanged event) {
         createAndPush(
             event.createdBy(),
@@ -96,7 +94,7 @@ public class NotificationService {
     }
 
     @Async
-    @EventListener
+    @TransactionalEventListener
     public void onTicketCommentAdded(TicketEvent.CommentAdded event) {
         // Notify ticket creator
         if (event.ticketCreatedBy() != null && !event.ticketCreatedBy().equals(event.commentAuthorId())) {
@@ -125,7 +123,7 @@ public class NotificationService {
     }
 
     @Async
-    @EventListener
+    @TransactionalEventListener
     public void onUserRegistered(UserEvent.Registered event) {
         List<User> superAdmins = userRepository.findByRoleAndStatus(UserRole.SUPER_ADMIN, UserStatus.ACTIVE);
         for (User admin : superAdmins) {
@@ -141,7 +139,7 @@ public class NotificationService {
     }
 
     @Async
-    @EventListener
+    @TransactionalEventListener
     public void onUserActivated(UserEvent.Activated event) {
         createAndPush(
             event.userId(),
@@ -154,7 +152,7 @@ public class NotificationService {
     }
 
     @Async
-    @EventListener
+    @TransactionalEventListener
     public void onUserRoleChanged(UserEvent.RoleChanged event) {
         createAndPush(
             event.userId(),
@@ -167,7 +165,7 @@ public class NotificationService {
     }
 
     @Async
-    @EventListener
+    @TransactionalEventListener
     public void onUserSuspended(UserEvent.Suspended event) {
         createAndPush(
             event.userId(),
@@ -189,13 +187,13 @@ public class NotificationService {
 
     @Transactional(readOnly = true)
     public List<NotificationResponse> getUnreadNotifications(UUID userId) {
-        return notificationRepository.findByUserIdAndIsReadOrderByCreatedAtDesc(userId, false)
+        return notificationRepository.findByUserIdAndReadOrderByCreatedAtDesc(userId, false)
             .stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public long getUnreadCount(UUID userId) {
-        return notificationRepository.countByUserIdAndIsRead(userId, false);
+        return notificationRepository.countByUserIdAndRead(userId, false);
     }
 
     @Transactional
@@ -218,19 +216,23 @@ public class NotificationService {
 
     private void createAndPush(UUID userId, String type, String title, String message,
                                String referenceId, String referenceType) {
-        Notification notification = new Notification(
-            null, userId, type, title, message, referenceId, referenceType, false, null
-        );
-        Notification saved = notificationRepository.save(notification);
-        NotificationResponse response = toResponse(saved);
-        sseEmitterManager.sendToUser(userId, "notification", response);
-        log.debug("Notification [{}] sent to user {}", type, userId);
+        try {
+            Notification notification = new Notification(
+                null, userId, type, title, message, referenceId, referenceType, false, null
+            );
+            Notification saved = notificationRepository.save(notification);
+            NotificationResponse response = toResponse(saved);
+            sseEmitterManager.sendToUser(userId, "notification", response);
+            log.debug("Notification [{}] sent to user {}", type, userId);
+        } catch (Exception e) {
+            log.error("Failed to create notification [{}] for user {}: {}", type, userId, e.getMessage());
+        }
     }
 
     private NotificationResponse toResponse(Notification n) {
         return new NotificationResponse(
             n.id(), n.type(), n.title(), n.message(),
-            n.referenceId(), n.referenceType(), n.isRead(), n.createdAt()
+            n.referenceId(), n.referenceType(), n.read(), n.createdAt()
         );
     }
 
