@@ -26,10 +26,11 @@ public class DuplicateDetectionController {
     public ResponseEntity<List<DuplicateSuggestion>> checkGet(
             @RequestParam String description,
             @RequestParam(required = false) String location,
+            @RequestParam(required = false) String category,
             @RequestParam(required = false) String domainId,
             @RequestParam(required = false) String excludeTicketId) throws Exception {
         return ResponseEntity.ok(
-                detectionService.findSimilar(description, location, domainId, excludeTicketId));
+                detectionService.findSimilar(description, location, category, domainId, excludeTicketId));
     }
 
     @PostMapping("/check")
@@ -37,7 +38,7 @@ public class DuplicateDetectionController {
             @Valid @RequestBody DuplicateCheckRequest request) throws Exception {
         return ResponseEntity.ok(
                 detectionService.findSimilar(
-                        request.description(), request.location(),
+                        request.description(), request.location(), request.category(),
                         request.domainId(), request.excludeTicketId()));
     }
 }

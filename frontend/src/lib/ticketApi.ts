@@ -89,12 +89,13 @@ export const ticketApi = {
     checkDuplicates: (
         description: string,
         location?: string,
+        category?: string,
         domainId?: string,
         excludeTicketId?: string,
     ) =>
         api
             .get<DuplicateSuggestion[]>('/tickets/duplicates/check', {
-                params: { description, location, domainId, excludeTicketId },
+                params: { description, location, category, domainId, excludeTicketId },
             })
             .then((r) => r.data),
 };

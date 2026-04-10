@@ -70,6 +70,7 @@ const CreateTicketPage: React.FC = () => {
                 const results = await ticketApi.checkDuplicates(
                     form.description,
                     form.location || undefined,
+                    form.category || undefined,
                     form.domainId || undefined,
                 );
                 setSuggestions(results);

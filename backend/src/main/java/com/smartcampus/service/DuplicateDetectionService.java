@@ -27,6 +27,8 @@ public class DuplicateDetectionService {
 
     private static final int MAX_RESULTS = 5;
     private static final List<TicketStatus> OPEN_STATUSES = List.of(TicketStatus.OPEN, TicketStatus.IN_PROGRESS);
+    private static final float MIN_RELEVANCE_SCORE = 0.9f;
+    private static final int MIN_TOKEN_OVERLAP = 2;
 
     private final TicketRepository ticketRepository;
 
@@ -77,7 +79,7 @@ public class DuplicateDetectionService {
      * Fix #8 — search across description + location + domainId.
      */
     public List<DuplicateSuggestion> findSimilar(
-            String description, String location, String domainId, String excludeId) throws Exception {
+            String description, String location, String category, String domainId, String excludeId) throws Exception {
 
         List<DuplicateSuggestion> results = new ArrayList<>();
 
@@ -118,17 +120,33 @@ public class DuplicateDetectionService {
                         BooleanClause.Occur.SHOULD);
             }
 
+            // Category — hard requirement when provided to avoid noisy cross-category hits.
+            if (category != null && !category.isBlank()) {
+                qb.add(new TermQuery(new Term("category", category.trim())),
+                        BooleanClause.Occur.MUST);
+            }
+
+            // Without this, pure SHOULD queries may match every indexed document.
+            // We require at least one similarity signal (description/location/domain).
+            qb.setMinimumNumberShouldMatch(1);
+
             BooleanQuery query = qb.build();
             if (query.clauses().isEmpty())
                 return results;
 
             TopDocs hits = searcher.search(query, MAX_RESULTS + 1);
+            List<String> inputTokens = tokenize(description);
             for (ScoreDoc sd : hits.scoreDocs) {
                 Document doc = searcher.storedFields().document(sd.doc);
                 String hitId = doc.get("id");
                 if (hitId.equals(excludeId))
                     continue;
+
                 String rawDesc = doc.get("description");
+                int overlapCount = sharedTokenCount(inputTokens, tokenize(rawDesc));
+                if (sd.score < MIN_RELEVANCE_SCORE || overlapCount < MIN_TOKEN_OVERLAP)
+                    continue;
+
                 String snippet = rawDesc != null
                         ? rawDesc.substring(0, Math.min(80, rawDesc.length()))
                         : "";
@@ -147,7 +165,7 @@ public class DuplicateDetectionService {
 
     /** Backward-compatible overload (description-only). */
     public List<DuplicateSuggestion> findSimilar(String description, String excludeId) throws Exception {
-        return findSimilar(description, null, null, excludeId);
+        return findSimilar(description, null, null, null, excludeId);
     }
 
     private Document toDocument(Ticket t) {
@@ -155,10 +173,31 @@ public class DuplicateDetectionService {
         doc.add(new StringField("id", t.id().toString(), Field.Store.YES));
         doc.add(new TextField("description", t.description(), Field.Store.YES));
         doc.add(new TextField("location", t.location(), Field.Store.YES));
+        doc.add(new StringField("category", t.category().name(), Field.Store.YES));
         doc.add(new StoredField("status", t.status().name()));
         if (t.domainId() != null) {
             doc.add(new StringField("domainId", t.domainId().toString(), Field.Store.YES));
         }
         return doc;
+    }
+
+    private List<String> tokenize(String text) {
+        if (text == null || text.isBlank())
+            return List.of();
+        return java.util.Arrays.stream(text.toLowerCase().split("[^a-z0-9]+"))
+                .filter(token -> token.length() >= 3)
+                .toList();
+    }
+
+    private int sharedTokenCount(List<String> left, List<String> right) {
+        if (left.isEmpty() || right.isEmpty())
+            return 0;
+        java.util.Set<String> rightSet = new java.util.HashSet<>(right);
+        int count = 0;
+        for (String token : left) {
+            if (rightSet.contains(token))
+                count++;
+        }
+        return count;
     }
 }
