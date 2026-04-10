@@ -1,6 +1,7 @@
 package com.smartcampus.service;
 
 import com.smartcampus.dto.*;
+import com.smartcampus.event.TicketEvent;
 import com.smartcampus.exception.ResourceNotFoundException;
 import com.smartcampus.exception.TicketAttachmentLimitException;
 import com.smartcampus.exception.UnauthorizedActionException;
@@ -8,6 +9,7 @@ import com.smartcampus.model.*;
 import com.smartcampus.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +35,7 @@ public class TicketService {
         private final CloudinaryService cloudinaryService;
         private final AuthService authService;
         private final DuplicateDetectionService detectionService;
+        private final ApplicationEventPublisher eventPublisher;
 
         public TicketService(TicketRepository ticketRepository,
                         TicketAttachmentRepository attachmentRepository,
@@ -40,7 +43,8 @@ public class TicketService {
                         UserRepository userRepository,
                         CloudinaryService cloudinaryService,
                         AuthService authService,
-                        DuplicateDetectionService detectionService) {
+                        DuplicateDetectionService detectionService,
+                        ApplicationEventPublisher eventPublisher) {
                 this.ticketRepository = ticketRepository;
                 this.attachmentRepository = attachmentRepository;
                 this.commentRepository = commentRepository;
@@ -48,6 +52,7 @@ public class TicketService {
                 this.cloudinaryService = cloudinaryService;
                 this.authService = authService;
                 this.detectionService = detectionService;
+                this.eventPublisher = eventPublisher;
         }
 
         // CREATE TICKET
@@ -107,6 +112,10 @@ public class TicketService {
                 } catch (IOException e) {
                         log.warn("Lucene index update failed for ticket {}: {}", saved.id(), e.getMessage());
                 }
+
+                eventPublisher.publishEvent(new TicketEvent.Created(
+                        saved.id(), currentUser.id(), resolvedDomainId,
+                        saved.location(), saved.category().name(), saved.priority().name()));
 
                 return buildResponse(saved);
         }
@@ -249,6 +258,10 @@ public class TicketService {
 
                 syncLinkedChildrenStatus(saved);
 
+                eventPublisher.publishEvent(new TicketEvent.StatusChanged(
+                        saved.id(), ticket.createdBy(),
+                        ticket.status().name(), saved.status().name(), saved.location()));
+
                 return buildResponse(saved);
         }
 
@@ -276,6 +289,10 @@ public class TicketService {
                                 ticket.linkedReportersCount(), ticket.createdAt(), null);
                 Ticket saved = ticketRepository.save(updated);
                 syncLinkedChildrenAssignment(saved);
+
+                eventPublisher.publishEvent(new TicketEvent.Assigned(
+                        saved.id(), technicianId, currentUser.id(), saved.location()));
+
                 return buildResponse(saved);
         }
 

@@ -3,11 +3,13 @@ package com.smartcampus.service;
 import com.smartcampus.dto.AuditLogResponse;
 import com.smartcampus.dto.DashboardStatsResponse;
 import com.smartcampus.dto.RolePromotionRequest;
+import com.smartcampus.event.UserEvent;
 import com.smartcampus.exception.ResourceNotFoundException;
 import com.smartcampus.model.*;
 import com.smartcampus.repository.DomainRepository;
 import com.smartcampus.repository.UserRepository;
 import com.smartcampus.repository.UserRoleAuditRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,13 +25,16 @@ public class AdminService {
     private final DomainRepository domainRepository;
     private final UserRoleAuditRepository auditRepository;
     private final AuthService authService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public AdminService(UserRepository userRepository, DomainRepository domainRepository, 
-                        UserRoleAuditRepository auditRepository, AuthService authService) {
+                        UserRoleAuditRepository auditRepository, AuthService authService,
+                        ApplicationEventPublisher eventPublisher) {
         this.userRepository = userRepository;
         this.domainRepository = domainRepository;
         this.auditRepository = auditRepository;
         this.authService = authService;
+        this.eventPublisher = eventPublisher;
     }
 
     public List<User> getAllUsers() {
@@ -82,7 +87,13 @@ public class AdminService {
             null
         );
 
-        return userRepository.save(updated);
+        User saved = userRepository.save(updated);
+
+        String oldRole = targetUser.role() != null ? targetUser.role().name() : "NONE";
+        eventPublisher.publishEvent(new UserEvent.RoleChanged(
+            saved.id(), saved.fullName(), oldRole, request.newRole().name(), admin.id()));
+
+        return saved;
     }
 
     @Transactional
@@ -111,7 +122,15 @@ public class AdminService {
             null
         );
 
-        return userRepository.save(updated);
+        User saved = userRepository.save(updated);
+
+        if (newStatus == UserStatus.ACTIVE) {
+            eventPublisher.publishEvent(new UserEvent.Activated(saved.id(), saved.fullName()));
+        } else if (newStatus == UserStatus.SUSPENDED) {
+            eventPublisher.publishEvent(new UserEvent.Suspended(saved.id(), saved.fullName()));
+        }
+
+        return saved;
     }
 
     public List<AuditLogResponse> getAllAuditLogs() {

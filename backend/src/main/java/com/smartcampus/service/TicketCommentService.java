@@ -2,14 +2,17 @@ package com.smartcampus.service;
 
 import com.smartcampus.dto.CommentResponse;
 import com.smartcampus.dto.CreateCommentRequest;
+import com.smartcampus.event.TicketEvent;
 import com.smartcampus.exception.ResourceNotFoundException;
 import com.smartcampus.exception.UnauthorizedActionException;
+import com.smartcampus.model.Ticket;
 import com.smartcampus.model.TicketComment;
 import com.smartcampus.model.User;
 import com.smartcampus.model.UserRole;
 import com.smartcampus.repository.TicketCommentRepository;
 import com.smartcampus.repository.TicketRepository;
 import com.smartcampus.repository.UserRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,23 +27,32 @@ public class TicketCommentService {
     private final TicketCommentRepository commentRepository;
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public TicketCommentService(TicketCommentRepository commentRepository,
             TicketRepository ticketRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            ApplicationEventPublisher eventPublisher) {
         this.commentRepository = commentRepository;
         this.ticketRepository = ticketRepository;
         this.userRepository = userRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     public CommentResponse addComment(UUID ticketId, CreateCommentRequest request, OAuth2User principal) {
         User currentUser = resolveUser(principal);
-        ticketRepository.findById(ticketId)
+        Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket not found: " + ticketId));
 
         TicketComment comment = new TicketComment(
                 null, ticketId, currentUser.id(), request.body(), false, null, null);
-        return toResponse(commentRepository.save(comment));
+        CommentResponse response = toResponse(commentRepository.save(comment));
+
+        eventPublisher.publishEvent(new TicketEvent.CommentAdded(
+                ticketId, ticket.createdBy(), ticket.assignedTo(),
+                currentUser.id(), currentUser.fullName(), ticket.location()));
+
+        return response;
     }
 
     @Transactional(readOnly = true)

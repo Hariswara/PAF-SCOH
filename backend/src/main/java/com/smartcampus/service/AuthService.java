@@ -3,6 +3,7 @@ package com.smartcampus.service;
 import com.smartcampus.dto.NonStudentRegistrationRequest;
 import com.smartcampus.dto.StudentRegistrationRequest;
 import com.smartcampus.dto.UpdateProfileRequest;
+import com.smartcampus.event.UserEvent;
 import com.smartcampus.model.Domain;
 import com.smartcampus.model.User;
 import com.smartcampus.model.UserRole;
@@ -10,6 +11,7 @@ import com.smartcampus.model.UserStatus;
 import com.smartcampus.repository.DomainRepository;
 import com.smartcampus.repository.UserRepository;
 import com.smartcampus.security.PasskeyAuthenticatedPrincipal;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -24,10 +26,13 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final DomainRepository domainRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public AuthService(UserRepository userRepository, DomainRepository domainRepository) {
+    public AuthService(UserRepository userRepository, DomainRepository domainRepository,
+                       ApplicationEventPublisher eventPublisher) {
         this.userRepository = userRepository;
         this.domainRepository = domainRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     public User getCurrentUser() {
@@ -69,7 +74,12 @@ public class AuthService {
             null
         );
 
-        return userRepository.save(updated);
+        User saved = userRepository.save(updated);
+
+        eventPublisher.publishEvent(new UserEvent.Registered(
+            saved.id(), saved.fullName(), saved.email(), "Student"));
+
+        return saved;
     }
 
     @Transactional
@@ -98,7 +108,12 @@ public class AuthService {
             null
         );
 
-        return userRepository.save(updated);
+        User saved = userRepository.save(updated);
+
+        eventPublisher.publishEvent(new UserEvent.Registered(
+            saved.id(), saved.fullName(), saved.email(), "Non-Student"));
+
+        return saved;
     }
 
     @Transactional
