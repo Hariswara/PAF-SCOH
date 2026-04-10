@@ -21,4 +21,7 @@ public interface TicketRepository extends ListCrudRepository<Ticket, UUID> {
     List<Ticket> findByStatusIn(List<TicketStatus> statuses);
 
     long countByStatus(TicketStatus status);
+
+    /** Used to scope all-tickets view for DOMAIN_ADMIN. */
+    List<Ticket> findByDomainIdOrderByCreatedAtDesc(UUID domainId);
 }
