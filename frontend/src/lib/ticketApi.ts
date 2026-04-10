@@ -24,6 +24,9 @@ export const ticketApi = {
     getById: (id: string) =>
         api.get<TicketResponse>(`/tickets/${id}`).then((r) => r.data),
 
+    getLinkedReports: (id: string) =>
+        api.get<TicketResponse[]>(`/tickets/${id}/linked-reports`).then((r) => r.data),
+
     create: (data: CreateTicketRequest) =>
         api.post<TicketResponse>('/tickets', data).then((r) => r.data),
 

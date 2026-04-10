@@ -63,6 +63,12 @@ public class TicketController {
         return ResponseEntity.ok(ticketService.getTicket(id));
     }
 
+    /** GET /api/tickets/{id}/linked-reports */
+    @GetMapping("/{id}/linked-reports")
+    public ResponseEntity<List<TicketResponse>> getLinkedReports(@PathVariable UUID id) {
+        return ResponseEntity.ok(ticketService.getLinkedReports(id));
+    }
+
     /** PATCH /api/tickets/{id}/status */
     @PatchMapping("/{id}/status")
     public ResponseEntity<TicketResponse> updateStatus(

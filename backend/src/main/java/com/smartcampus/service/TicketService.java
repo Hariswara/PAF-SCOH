@@ -149,6 +149,13 @@ public class TicketService {
                 return buildResponse(findTicket(id));
         }
 
+        @Transactional(readOnly = true)
+        public List<TicketResponse> getLinkedReports(UUID parentTicketId) {
+                findTicket(parentTicketId);
+                return ticketRepository.findByLinkedTicketIdOrderByCreatedAtDesc(parentTicketId)
+                                .stream().map(this::buildResponse).toList();
+        }
+
         /**
          * Fix #6 — DOMAIN_ADMIN sees only their domain's tickets; SUPER_ADMIN sees all.
          */
@@ -157,24 +164,28 @@ public class TicketService {
                 User currentUser = resolveUser(principal);
                 if (currentUser.role() == UserRole.DOMAIN_ADMIN && currentUser.domainId() != null) {
                         return ticketRepository.findByDomainIdOrderByCreatedAtDesc(currentUser.domainId())
-                                        .stream().map(this::buildResponse).toList();
+                                        .stream().filter(t -> t.linkedTicketId() == null)
+                                        .map(this::buildResponse).toList();
                 }
                 return ticketRepository.findAllByOrderByCreatedAtDesc()
-                                .stream().map(this::buildResponse).toList();
+                                .stream().filter(t -> t.linkedTicketId() == null)
+                                .map(this::buildResponse).toList();
         }
 
         @Transactional(readOnly = true)
         public List<TicketResponse> getMyTickets(OAuth2User principal) {
                 User currentUser = resolveUser(principal);
                 return ticketRepository.findByCreatedByOrderByCreatedAtDesc(currentUser.id())
-                                .stream().map(this::buildResponse).toList();
+                                .stream().filter(t -> t.linkedTicketId() == null)
+                                .map(this::buildResponse).toList();
         }
 
         @Transactional(readOnly = true)
         public List<TicketResponse> getAssignedTickets(OAuth2User principal) {
                 User currentUser = resolveUser(principal);
                 return ticketRepository.findByAssignedToOrderByCreatedAtDesc(currentUser.id())
-                                .stream().map(this::buildResponse).toList();
+                                .stream().filter(t -> t.linkedTicketId() == null)
+                                .map(this::buildResponse).toList();
         }
 
         @Transactional(readOnly = true)
@@ -236,6 +247,8 @@ public class TicketService {
                         }
                 }
 
+                syncLinkedChildrenStatus(saved);
+
                 return buildResponse(saved);
         }
 
@@ -261,7 +274,9 @@ public class TicketService {
                                 ticket.preferredContact(), ticket.status(), ticket.rejectionReason(),
                                 technicianId, ticket.resolutionNotes(), ticket.linkedTicketId(),
                                 ticket.linkedReportersCount(), ticket.createdAt(), null);
-                return buildResponse(ticketRepository.save(updated));
+                Ticket saved = ticketRepository.save(updated);
+                syncLinkedChildrenAssignment(saved);
+                return buildResponse(saved);
         }
 
         public TicketResponse addResolutionNotes(UUID ticketId, ResolutionNotesRequest request, OAuth2User principal) {
@@ -282,7 +297,9 @@ public class TicketService {
                                 ticket.preferredContact(), ticket.status(), ticket.rejectionReason(),
                                 ticket.assignedTo(), request.resolutionNotes(), ticket.linkedTicketId(),
                                 ticket.linkedReportersCount(), ticket.createdAt(), null);
-                return buildResponse(ticketRepository.save(updated));
+                Ticket saved = ticketRepository.save(updated);
+                syncLinkedChildrenResolution(saved);
+                return buildResponse(saved);
         }
 
         // HELPERS
@@ -355,6 +372,42 @@ public class TicketService {
 
         private boolean isDomainAdminOrSuper(User user) {
                 return user.role() == UserRole.SUPER_ADMIN || user.role() == UserRole.DOMAIN_ADMIN;
+        }
+
+        private void syncLinkedChildrenStatus(Ticket parent) {
+                for (Ticket child : ticketRepository.findByLinkedTicketIdOrderByCreatedAtDesc(parent.id())) {
+                        Ticket updatedChild = new Ticket(
+                                        child.id(), child.createdBy(), child.domainId(), child.resourceId(),
+                                        child.location(), child.category(), child.description(), child.priority(),
+                                        child.preferredContact(), parent.status(), parent.rejectionReason(),
+                                        child.assignedTo(), child.resolutionNotes(), child.linkedTicketId(),
+                                        child.linkedReportersCount(), child.createdAt(), null);
+                        ticketRepository.save(updatedChild);
+                }
+        }
+
+        private void syncLinkedChildrenAssignment(Ticket parent) {
+                for (Ticket child : ticketRepository.findByLinkedTicketIdOrderByCreatedAtDesc(parent.id())) {
+                        Ticket updatedChild = new Ticket(
+                                        child.id(), child.createdBy(), child.domainId(), child.resourceId(),
+                                        child.location(), child.category(), child.description(), child.priority(),
+                                        child.preferredContact(), child.status(), child.rejectionReason(),
+                                        parent.assignedTo(), child.resolutionNotes(), child.linkedTicketId(),
+                                        child.linkedReportersCount(), child.createdAt(), null);
+                        ticketRepository.save(updatedChild);
+                }
+        }
+
+        private void syncLinkedChildrenResolution(Ticket parent) {
+                for (Ticket child : ticketRepository.findByLinkedTicketIdOrderByCreatedAtDesc(parent.id())) {
+                        Ticket updatedChild = new Ticket(
+                                        child.id(), child.createdBy(), child.domainId(), child.resourceId(),
+                                        child.location(), child.category(), child.description(), child.priority(),
+                                        child.preferredContact(), child.status(), child.rejectionReason(),
+                                        child.assignedTo(), parent.resolutionNotes(), child.linkedTicketId(),
+                                        child.linkedReportersCount(), child.createdAt(), null);
+                        ticketRepository.save(updatedChild);
+                }
         }
 
         TicketResponse buildResponse(Ticket t) {

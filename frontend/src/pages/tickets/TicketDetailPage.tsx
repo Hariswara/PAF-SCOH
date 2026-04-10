@@ -124,6 +124,8 @@ const TicketDetailPage: React.FC = () => {
     const [linkedParent, setLinkedParent] = useState<TicketResponse | null>(null);
     const [linkedParentLoading, setLinkedParentLoading] = useState(false);
     const [linkedParentError, setLinkedParentError] = useState(false);
+    const [linkedReports, setLinkedReports] = useState<TicketResponse[]>([]);
+    const [linkedReportsLoading, setLinkedReportsLoading] = useState(false);
 
     useEffect(() => {
         if (!linkedId) {
@@ -146,6 +148,30 @@ const TicketDetailPage: React.FC = () => {
             });
         return () => { cancelled = true; };
     }, [linkedId]);
+
+    useEffect(() => {
+        if (!ticket || linkedId) {
+            setLinkedReports([]);
+            return;
+        }
+
+        let cancelled = false;
+        setLinkedReportsLoading(true);
+        ticketApi.getLinkedReports(ticket.id)
+            .then((data) => {
+                if (!cancelled) setLinkedReports(data);
+            })
+            .catch(() => {
+                if (!cancelled) setLinkedReports([]);
+            })
+            .finally(() => {
+                if (!cancelled) setLinkedReportsLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [ticket, linkedId]);
 
     // ── Next-status computation (fix #1 — students see no buttons)
     let nextStatuses: TicketStatus[] = [];
@@ -427,6 +453,44 @@ const TicketDetailPage: React.FC = () => {
                                 {ticket.linkedReportersCount > 1 ? 's' : ''} linked to this ticket
                             </p>
                         </div>
+                    )}
+
+                    {!linkedId && (linkedReportsLoading || linkedReports.length > 0) && (
+                        <Card title="Linked Reports">
+                            {linkedReportsLoading ? (
+                                <div className="flex items-center gap-2 py-1">
+                                    <Loader2 size={14} className="animate-spin" style={{ color: '#6B7B6B' }} />
+                                    <span className="text-[12px]" style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}>
+                                        Loading linked reports...
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {linkedReports.map((report) => (
+                                        <Link
+                                            key={report.id}
+                                            to={`/tickets/${report.id}`}
+                                            className="block rounded-md p-3 transition-colors hover:bg-[#F2F5F0]"
+                                            style={{ border: '1px solid #E2E8DF' }}
+                                        >
+                                            <div className="flex items-center gap-2 mb-1.5">
+                                                <TicketStatusBadge status={report.status} />
+                                                <TicketPriorityBadge priority={report.priority} />
+                                                <span className="text-[10px] font-mono opacity-50" style={{ color: '#6B7B6B' }}>
+                                                    #{report.id.slice(0, 8)}
+                                                </span>
+                                            </div>
+                                            <p className="text-[13px] font-semibold" style={{ color: '#1A2E1A', fontFamily: 'Albert Sans, sans-serif' }}>
+                                                {report.location}
+                                            </p>
+                                            <p className="text-[12px] line-clamp-1" style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}>
+                                                {report.description}
+                                            </p>
+                                        </Link>
+                                    ))}
+                                </div>
+                            )}
+                        </Card>
                     )}
 
                     {/* Attachments */}
