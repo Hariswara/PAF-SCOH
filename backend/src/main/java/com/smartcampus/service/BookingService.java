@@ -2,6 +2,7 @@ package com.smartcampus.service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -20,6 +21,9 @@ import com.smartcampus.repository.BookingRepository;
 @Service
 public class BookingService {
 
+    private static final LocalTime BOOKING_START_TIME = LocalTime.of(8, 0);
+    private static final LocalTime BOOKING_END_TIME = LocalTime.of(21, 0);
+
     private final BookingRepository bookingRepository;
     private final AuthService authService;
 
@@ -32,6 +36,16 @@ public class BookingService {
 
         if (!request.getStartTime().isBefore(request.getEndTime())) {
             throw new IllegalArgumentException("Start time must be before end time");
+        }
+
+        if (request.getStartTime().isBefore(BOOKING_START_TIME)) {
+            throw new IllegalArgumentException(
+                    "Booking start time must be on or after " + BOOKING_START_TIME);
+        }
+
+        if (request.getEndTime().isAfter(BOOKING_END_TIME)) {
+            throw new IllegalArgumentException(
+                    "Booking end time must be on or before " + BOOKING_END_TIME);
         }
 
         User currentUser = authService.getCurrentUser();
