@@ -1,6 +1,8 @@
 package com.smartcampus.dto;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record StudentRegistrationRequest(
@@ -15,5 +17,13 @@ public record StudentRegistrationRequest(
     @NotBlank(message = "Department is required")
     String department,
 
-    String phone
+    @Size(max = 20)
+    String phone,
+
+    @Email(message = "Contact email must be valid")
+    @Size(max = 255)
+    String contactEmail,
+
+    @Pattern(regexp = "^(MALE|FEMALE|OTHER|PREFER_NOT_TO_SAY)?$", message = "Invalid gender value")
+    String gender
 ) {}

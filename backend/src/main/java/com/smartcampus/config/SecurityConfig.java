@@ -38,6 +38,7 @@ public class SecurityConfig {
                 .csrfTokenRequestHandler(requestHandler)
                 .ignoringRequestMatchers("/api/auth/logout")
                 .ignoringRequestMatchers("/api/auth/passkey/login/**")
+                .ignoringRequestMatchers("/api/notifications/stream")
             )
             .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
             .addFilterAfter(new UserStatusFilter(userRepository), CsrfCookieFilter.class)
