@@ -11,28 +11,42 @@ import org.springframework.stereotype.Service;
 import com.smartcampus.dto.BookingResponse;
 import com.smartcampus.dto.CreateBookingRequest;
 import com.smartcampus.dto.ReviewBookingRequest;
+import com.smartcampus.exception.ResourceNotFoundException;
 import com.smartcampus.model.Booking;
 import com.smartcampus.model.BookingStatus;
+import com.smartcampus.model.Resource;
+import com.smartcampus.model.ResourceStatus;
 import com.smartcampus.model.User;
 import com.smartcampus.model.UserRole;
 import com.smartcampus.repository.BookingRepository;
+import com.smartcampus.repository.ResourceRepository;
 
 @Service
 public class BookingService {
 
     private final BookingRepository bookingRepository;
+    private final ResourceRepository resourceRepository;
     private final AuthService authService;
 
-    public BookingService(BookingRepository bookingRepository, AuthService authService) {
+    public BookingService(
+            BookingRepository bookingRepository,
+            ResourceRepository resourceRepository,
+            AuthService authService
+    ) {
         this.bookingRepository = bookingRepository;
+        this.resourceRepository = resourceRepository;
         this.authService = authService;
     }
 
     public BookingResponse createBooking(CreateBookingRequest request) {
 
-        if (!request.getStartTime().isBefore(request.getEndTime())) {
-            throw new IllegalArgumentException("Start time must be before end time");
-        }
+        validateRequest(request);
+
+        Resource resource = resourceRepository.findById(request.getResourceId())
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
+
+        validateResource(resource, request);
+        validateBookingConflict(request);
 
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) {
@@ -59,15 +73,15 @@ public class BookingService {
             BookingStatus status,
             UUID resourceId,
             LocalDate date,
-            String user) {
-
+            String user
+    ) {
         User currentUser = authService.getCurrentUser();
         if (currentUser == null) {
             throw new IllegalArgumentException("Authenticated user not found");
         }
 
-        boolean isAdmin = currentUser.role() == UserRole.DOMAIN_ADMIN ||
-                          currentUser.role() == UserRole.SUPER_ADMIN;
+        boolean isAdmin = currentUser.role() == UserRole.DOMAIN_ADMIN
+                || currentUser.role() == UserRole.SUPER_ADMIN;
 
         if (!isAdmin) {
             throw new IllegalStateException("Only admin users can view all bookings");
@@ -79,9 +93,9 @@ public class BookingService {
                 .filter(booking -> status == null || booking.getStatus() == status)
                 .filter(booking -> resourceId == null || resourceId.equals(booking.getResourceId()))
                 .filter(booking -> date == null || date.equals(booking.getDate()))
-                .filter(booking -> user == null || user.isBlank() ||
-                        (booking.getCreatedBy() != null &&
-                         booking.getCreatedBy().equalsIgnoreCase(user)))
+                .filter(booking -> user == null || user.isBlank()
+                        || (booking.getCreatedBy() != null
+                        && booking.getCreatedBy().equalsIgnoreCase(user)))
                 .sorted(Comparator.comparing(Booking::getCreatedAt).reversed())
                 .map(this::mapToBookingResponse)
                 .toList();
@@ -98,11 +112,17 @@ public class BookingService {
         List<Booking> bookings;
 
         if (status != null && date != null) {
-            bookings = bookingRepository.findByCreatedByAndStatusAndDateOrderByCreatedAtDesc(userEmail, status, date);
+            bookings = bookingRepository.findByCreatedByAndStatusAndDateOrderByCreatedAtDesc(
+                    userEmail, status, date
+            );
         } else if (status != null) {
-            bookings = bookingRepository.findByCreatedByAndStatusOrderByCreatedAtDesc(userEmail, status);
+            bookings = bookingRepository.findByCreatedByAndStatusOrderByCreatedAtDesc(
+                    userEmail, status
+            );
         } else if (date != null) {
-            bookings = bookingRepository.findByCreatedByAndDateOrderByCreatedAtDesc(userEmail, date);
+            bookings = bookingRepository.findByCreatedByAndDateOrderByCreatedAtDesc(
+                    userEmail, date
+            );
         } else {
             bookings = bookingRepository.findByCreatedByOrderByCreatedAtDesc(userEmail);
         }
@@ -122,8 +142,8 @@ public class BookingService {
             throw new IllegalArgumentException("Authenticated user not found");
         }
 
-        boolean isAdmin = currentUser.role() == UserRole.DOMAIN_ADMIN ||
-                          currentUser.role() == UserRole.SUPER_ADMIN;
+        boolean isAdmin = currentUser.role() == UserRole.DOMAIN_ADMIN
+                || currentUser.role() == UserRole.SUPER_ADMIN;
 
         if (!isAdmin) {
             throw new IllegalStateException("Only admin users can review bookings");
@@ -131,13 +151,15 @@ public class BookingService {
 
         if (booking.getStatus() != BookingStatus.PENDING) {
             throw new IllegalStateException(
-                    "Invalid status transition. Only PENDING bookings can be reviewed");
+                    "Invalid status transition. Only PENDING bookings can be reviewed"
+            );
         }
 
-        if (request.getStatus() != BookingStatus.APPROVED &&
-            request.getStatus() != BookingStatus.REJECTED) {
+        if (request.getStatus() != BookingStatus.APPROVED
+                && request.getStatus() != BookingStatus.REJECTED) {
             throw new IllegalArgumentException(
-                    "Invalid status transition. PENDING bookings can only transition to APPROVED or REJECTED");
+                    "Invalid status transition. PENDING bookings can only transition to APPROVED or REJECTED"
+            );
         }
 
         booking.setStatus(request.getStatus());
@@ -159,31 +181,35 @@ public class BookingService {
             throw new IllegalArgumentException("Authenticated user not found");
         }
 
-        boolean isAdmin = currentUser.role() == UserRole.DOMAIN_ADMIN ||
-                          currentUser.role() == UserRole.SUPER_ADMIN;
+        boolean isAdmin = currentUser.role() == UserRole.DOMAIN_ADMIN
+                || currentUser.role() == UserRole.SUPER_ADMIN;
 
-        boolean isOwner = booking.getCreatedBy() != null &&
-                          booking.getCreatedBy().equals(currentUser.email());
+        boolean isOwner = booking.getCreatedBy() != null
+                && booking.getCreatedBy().equals(currentUser.email());
 
-        if (booking.getStatus() == BookingStatus.REJECTED ||
-            booking.getStatus() == BookingStatus.CANCELLED) {
+        if (booking.getStatus() == BookingStatus.REJECTED
+                || booking.getStatus() == BookingStatus.CANCELLED) {
             throw new IllegalStateException(
-                    "Invalid status transition. This booking cannot be cancelled");
+                    "Invalid status transition. This booking cannot be cancelled"
+            );
         }
 
         if (booking.getStatus() == BookingStatus.PENDING) {
             if (!isOwner) {
                 throw new IllegalStateException(
-                        "Invalid status transition. Only the booking owner can cancel a pending booking");
+                        "Invalid status transition. Only the booking owner can cancel a pending booking"
+                );
             }
         } else if (booking.getStatus() == BookingStatus.APPROVED) {
             if (!isOwner && !isAdmin) {
                 throw new IllegalStateException(
-                        "Invalid status transition. Only the booking owner or an admin can cancel an approved booking");
+                        "Invalid status transition. Only the booking owner or an admin can cancel an approved booking"
+                );
             }
         } else {
             throw new IllegalStateException(
-                    "Invalid status transition. This booking cannot be cancelled");
+                    "Invalid status transition. This booking cannot be cancelled"
+            );
         }
 
         booking.setStatus(BookingStatus.CANCELLED);
@@ -205,4 +231,54 @@ public class BookingService {
                 booking.getStatus().name()
         );
     }
+
+    private void validateRequest(CreateBookingRequest request) {
+    if (request.getStartTime() == null || request.getEndTime() == null) {
+        throw new IllegalArgumentException("Start time and end time are required");
+    }
+
+        if (!request.getStartTime().isBefore(request.getEndTime())) {
+            throw new IllegalArgumentException("Start time must be before end time");
+        }
+
+        if (request.getDate() == null) {
+            throw new IllegalArgumentException("Booking date is required");
+        }
+
+        if (request.getResourceId() == null) {
+            throw new IllegalArgumentException("Resource is required");
+        }
+    }
+
+    private void validateResource(Resource resource, CreateBookingRequest request) {
+        if (resource.statusEnum() != ResourceStatus.ACTIVE) {
+            throw new IllegalArgumentException("Resource is not active and cannot be booked");
+        }
+
+        Integer capacity = resource.capacity();
+        if (capacity != null && request.getExpectedAttendees() > capacity) {
+            throw new IllegalArgumentException(
+                    "Expected attendees exceed resource capacity of " + capacity
+            );
+        }
+    }
+
+    private void validateBookingConflict(CreateBookingRequest request) {
+        boolean hasConflict =
+                bookingRepository.existsByResourceIdAndDateAndStartTimeLessThanAndEndTimeGreaterThanAndStatusNotIn(
+                        request.getResourceId(),
+                        request.getDate(),
+                        request.getEndTime(),
+                        request.getStartTime(),
+                        List.of(BookingStatus.CANCELLED, BookingStatus.REJECTED)
+                );
+
+        if (hasConflict) {
+            throw new IllegalArgumentException(
+                    "Conflicting booking already exists for the selected time range"
+            );
+        }
+    }
+
+    
 }
