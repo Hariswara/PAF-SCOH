@@ -18,6 +18,7 @@ import ProfilePage from '@/pages/ProfilePage';
 // Tickets
 import TicketListPage from '@/pages/tickets/TicketListPage';
 import CreateTicketPage from '@/pages/tickets/CreateTicketPage';
+import TicketDetailPage from '@/pages/tickets/TicketDetailPage';
 
 /** Wraps a page with AuthGuard + the shared sidebar layout */
 function ProtectedPage({
@@ -50,7 +51,7 @@ function App() {
           />
 
           {/* ── Status pages (standalone, no sidebar) ── */}
-          <Route path="/suspended"    element={<SuspendedPage />} />
+          <Route path="/suspended" element={<SuspendedPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
           <Route
             path="/pending-activation"
@@ -73,22 +74,23 @@ function App() {
 
           {/* ── Core app (sidebar layout) ── */}
           <Route path="/dashboard" element={<ProtectedPage><DashboardPage /></ProtectedPage>} />
-          <Route path="/bookings"  element={<ProtectedPage><BookingsPage /></ProtectedPage>} />
+          <Route path="/bookings" element={<ProtectedPage><BookingsPage /></ProtectedPage>} />
           <Route path="/resources" element={<ProtectedPage><ResourcesPage /></ProtectedPage>} />
-          <Route path="/profile"   element={<ProtectedPage><ProfilePage /></ProtectedPage>} />
+          <Route path="/profile" element={<ProtectedPage><ProfilePage /></ProtectedPage>} />
 
           {/* ── Tickets ── */}
-          <Route path="/tickets"     element={<ProtectedPage><TicketListPage /></ProtectedPage>} />
-          <Route path="/tickets/new" element={<ProtectedPage><CreateTicketPage /></ProtectedPage>} />
+          <Route path="/tickets" element={<ProtectedPage><TicketListPage /></ProtectedPage>} />
+          <Route path="/tickets/new" element={<ProtectedPage allowedRoles={['STUDENT', 'DOMAIN_ADMIN']}><CreateTicketPage /></ProtectedPage>} />
+          <Route path="/tickets/:id" element={<ProtectedPage><TicketDetailPage /></ProtectedPage>} />
 
           {/* ── Admin (sidebar layout) ── */}
-          <Route path="/admin/users"   element={<ProtectedPage allowedRoles={['SUPER_ADMIN']}><UserManagementPage /></ProtectedPage>} />
+          <Route path="/admin/users" element={<ProtectedPage allowedRoles={['SUPER_ADMIN']}><UserManagementPage /></ProtectedPage>} />
           <Route path="/admin/domains" element={<ProtectedPage allowedRoles={['SUPER_ADMIN']}><DomainManagementPage /></ProtectedPage>} />
-          <Route path="/admin/audit"   element={<ProtectedPage allowedRoles={['SUPER_ADMIN']}><AuditLogPage /></ProtectedPage>} />
+          <Route path="/admin/audit" element={<ProtectedPage allowedRoles={['SUPER_ADMIN']}><AuditLogPage /></ProtectedPage>} />
 
           {/* ── Redirects ── */}
-          <Route path="/"  element={<Navigate to="/dashboard" replace />} />
-          <Route path="*"  element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
