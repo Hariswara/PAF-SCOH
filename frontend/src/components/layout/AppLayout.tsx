@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import NotificationBell from '@/components/notifications/NotificationBell';
 import {
   LayoutDashboard, BookMarked, CalendarCheck, Ticket,
   Users, Globe2, ShieldAlert, UserCircle, LogOut, Menu, X,
@@ -26,10 +27,23 @@ const ROLE_META: Record<string, { label: string; color: string }> = {
   SUPER_ADMIN:  { label: 'Super Admin',  color: '#2D7A3A' },
 };
 
+const PAGE_TITLES: Record<string, string> = {
+  '/dashboard':     'Dashboard',
+  '/resources':     'Resources',
+  '/bookings':      'Bookings',
+  '/tickets':       'Tickets',
+  '/tickets/new':   'New Ticket',
+  '/profile':       'Profile',
+  '/notifications': 'Notifications',
+  '/admin/users':   'Personnel',
+  '/admin/domains': 'Domains',
+  '/admin/audit':   'Audit Log',
+};
+
 interface NavItem {
   label: string;
   href: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>;
 }
 
 const coreNav: NavItem[] = [
@@ -108,15 +122,18 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const location = useLocation();
   const [open, setOpen] = useState(false);
 
-  const active = (href: string) => location.pathname === href;
+  const active = (href: string) => location.pathname === href
+    || (href === '/tickets' && location.pathname.startsWith('/tickets/'));
   const roleMeta = user?.role ? ROLE_META[user.role] : undefined;
   const initials = user?.fullName
     ? user.fullName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
     : '?';
 
-  const SidebarInner = ({ onNav }: { onNav?: () => void }) => (
-    <div className="flex flex-col h-full overflow-hidden">
+  const pageTitle = PAGE_TITLES[location.pathname]
+    || (location.pathname.startsWith('/tickets/') ? 'Ticket Details' : 'SmartCampus');
 
+  const Sidebar = ({ onNav }: { onNav?: () => void }) => (
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Brand */}
       <div
         className="flex items-center gap-3 px-5 py-[18px]"
@@ -251,7 +268,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           borderRight:  `1px solid ${C.border}`,
         }}
       >
-        <SidebarInner />
+        <Sidebar />
       </aside>
 
       {/* Mobile overlay */}
@@ -289,34 +306,82 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                 <X size={16} />
               </button>
             </div>
-            <SidebarInner onNav={() => setOpen(false)} />
+            <Sidebar onNav={() => setOpen(false)} />
           </aside>
         </div>
       )}
 
-      {/* Content */}
+      {/* Content area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile topbar */}
-        <div
-          className="lg:hidden flex items-center justify-between px-4 py-3"
-          style={{ background: C.card, borderBottom: `1px solid ${C.border}` }}
+
+        {/* ── Top header bar (desktop + mobile) ── */}
+        <header
+          className="flex items-center justify-between shrink-0 px-4 sm:px-6 lg:px-8"
+          style={{
+            height: 56,
+            background: C.card,
+            borderBottom: `1px solid ${C.border}`,
+            fontFamily: 'Albert Sans, sans-serif',
+          }}
         >
-          <button
-            onClick={() => setOpen(true)}
-            style={{ color: C.muted }}
-            onMouseEnter={e => (e.currentTarget.style.color = C.fg)}
-            onMouseLeave={e => (e.currentTarget.style.color = C.muted)}
-          >
-            <Menu size={20} />
-          </button>
-          <span
-            className="text-[11px] font-semibold uppercase tracking-[0.2em]"
-            style={{ color: C.green, fontFamily: 'Albert Sans, sans-serif' }}
-          >
-            SmartCampus
-          </span>
-          <div className="w-5" />
-        </div>
+          {/* Left: hamburger (mobile) + page title */}
+          <div className="flex items-center gap-3">
+            <button
+              className="lg:hidden p-1.5 -ml-1.5 rounded-md transition-colors"
+              onClick={() => setOpen(true)}
+              style={{ color: C.muted }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = C.hover;
+                e.currentTarget.style.color = C.fg;
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = C.muted;
+              }}
+            >
+              <Menu size={18} />
+            </button>
+            <h1
+              className="text-[14px] font-semibold"
+              style={{ color: C.fg }}
+            >
+              {pageTitle}
+            </h1>
+          </div>
+
+          {/* Right: notification bell + user avatar */}
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+
+            <Link
+              to="/profile"
+              className="flex items-center gap-2.5 py-1.5 pl-2.5 pr-3 rounded-lg transition-all duration-150"
+              style={{ background: 'transparent' }}
+              onMouseEnter={e => { e.currentTarget.style.background = C.hover; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+            >
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                style={{ background: C.greenDim, color: C.green }}
+              >
+                {initials}
+              </div>
+              <div className="hidden sm:block min-w-0">
+                <p className="text-[12px] font-medium truncate leading-tight" style={{ color: C.fg }}>
+                  {user?.fullName?.split(' ')[0] ?? 'User'}
+                </p>
+                {roleMeta && (
+                  <p
+                    className="text-[9px] font-semibold uppercase tracking-wider truncate"
+                    style={{ color: roleMeta.color }}
+                  >
+                    {roleMeta.label}
+                  </p>
+                )}
+              </div>
+            </Link>
+          </div>
+        </header>
 
         <main className="flex-1 overflow-y-auto">
           {children}
