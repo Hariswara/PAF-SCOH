@@ -6,6 +6,8 @@ import com.smartcampus.exception.TicketAttachmentLimitException;
 import com.smartcampus.exception.UnauthorizedActionException;
 import com.smartcampus.model.*;
 import com.smartcampus.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,7 +19,8 @@ import java.util.*;
 @Service
 @Transactional
 public class TicketService {
-        private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TicketService.class);
+
+        private static final Logger log = LoggerFactory.getLogger(TicketService.class);
 
         private static final int MAX_ATTACHMENTS = 3;
         private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
@@ -52,10 +55,20 @@ public class TicketService {
         public TicketResponse createTicket(CreateTicketRequest request, OAuth2User principal) {
                 User currentUser = resolveUser(principal);
 
+                // Fix #5 — only STUDENT and DOMAIN_ADMIN may create tickets
+                if (currentUser.role() != UserRole.STUDENT && currentUser.role() != UserRole.DOMAIN_ADMIN) {
+                        throw new UnauthorizedActionException("Only students and domain admins may create tickets");
+                }
+
+                // Fix #6 — domain admin always uses their own domain; student supplies domainId
+                UUID resolvedDomainId = (currentUser.role() == UserRole.DOMAIN_ADMIN)
+                                ? currentUser.domainId()
+                                : request.domainId();
+
                 Ticket ticket = new Ticket(
                                 null,
                                 currentUser.id(),
-                                currentUser.domainId(),
+                                resolvedDomainId,
                                 request.resourceId(),
                                 request.location(),
                                 request.category(),
@@ -72,26 +85,27 @@ public class TicketService {
                                 null);
                 Ticket saved = ticketRepository.save(ticket);
 
-                try {
-                        detectionService.indexTicket(saved);
-                } catch (IOException e) {
-                        log.warn("Lucene index update failed for ticket {}: {}", saved.id(), e.getMessage());
-                }
-
-                // If user chose to link to existing ticket, increment that ticket's reporter
-                // count
+                // Recalculate and persist parent reporter count from linked child rows.
+                // This avoids stale counters when older data had incorrect values.
                 if (request.linkedTicketId() != null) {
                         ticketRepository.findById(request.linkedTicketId()).ifPresent(parent -> {
+                                int recalculatedLinkedCount = (int) ticketRepository.countByLinkedTicketId(parent.id());
                                 Ticket updated = new Ticket(
                                                 parent.id(), parent.createdBy(), parent.domainId(), parent.resourceId(),
                                                 parent.location(), parent.category(), parent.description(),
                                                 parent.priority(),
                                                 parent.preferredContact(), parent.status(), parent.rejectionReason(),
                                                 parent.assignedTo(), parent.resolutionNotes(), parent.linkedTicketId(),
-                                                parent.linkedReportersCount() + 1,
-                                                parent.createdAt(), null);
+                                                recalculatedLinkedCount, parent.createdAt(), null);
                                 ticketRepository.save(updated);
                         });
+                }
+
+                // Index into Lucene for duplicate detection
+                try {
+                        detectionService.indexTicket(saved);
+                } catch (IOException e) {
+                        log.warn("Lucene index update failed for ticket {}: {}", saved.id(), e.getMessage());
                 }
 
                 return buildResponse(saved);
@@ -104,7 +118,6 @@ public class TicketService {
                 User currentUser = resolveUser(principal);
                 Ticket ticket = findTicket(ticketId);
 
-                // Only ticket creator (or admin) can attach files
                 if (!ticket.createdBy().equals(currentUser.id()) && !isAdmin(currentUser)) {
                         throw new UnauthorizedActionException("Only the ticket creator can add attachments");
                 }
@@ -122,17 +135,11 @@ public class TicketService {
                 Map<String, String> upload = cloudinaryService.upload(file);
 
                 TicketAttachment attachment = new TicketAttachment(
-                                null,
-                                ticketId,
-                                currentUser.id(),
-                                file.getOriginalFilename(),
-                                file.getContentType(),
-                                upload.get("public_id"),
-                                upload.get("secure_url"),
-                                file.getSize(),
-                                null);
-                TicketAttachment saved = attachmentRepository.save(attachment);
-                return toAttachmentResponse(saved);
+                                null, ticketId, currentUser.id(),
+                                file.getOriginalFilename(), file.getContentType(),
+                                upload.get("public_id"), upload.get("secure_url"),
+                                file.getSize(), null);
+                return toAttachmentResponse(attachmentRepository.save(attachment));
         }
 
         // READ
@@ -143,26 +150,66 @@ public class TicketService {
         }
 
         @Transactional(readOnly = true)
-        public List<TicketResponse> getAllTickets() {
-                return ticketRepository.findAllByOrderByCreatedAtDesc().stream()
-                                .map(this::buildResponse)
-                                .toList();
+        public List<TicketResponse> getLinkedReports(UUID parentTicketId) {
+                findTicket(parentTicketId);
+                return ticketRepository.findByLinkedTicketIdOrderByCreatedAtDesc(parentTicketId)
+                                .stream().map(this::buildResponse).toList();
+        }
+
+        /**
+         * Fix #6 — DOMAIN_ADMIN sees only their domain's tickets; SUPER_ADMIN sees all.
+         */
+        @Transactional(readOnly = true)
+        public List<TicketResponse> getAllTickets(OAuth2User principal) {
+                User currentUser = resolveUser(principal);
+                if (currentUser.role() == UserRole.DOMAIN_ADMIN && currentUser.domainId() != null) {
+                        return ticketRepository.findByDomainIdOrderByCreatedAtDesc(currentUser.domainId())
+                                        .stream().filter(t -> t.linkedTicketId() == null)
+                                        .map(this::buildResponse).toList();
+                }
+                return ticketRepository.findAllByOrderByCreatedAtDesc()
+                                .stream().filter(t -> t.linkedTicketId() == null)
+                                .map(this::buildResponse).toList();
         }
 
         @Transactional(readOnly = true)
         public List<TicketResponse> getMyTickets(OAuth2User principal) {
                 User currentUser = resolveUser(principal);
-                return ticketRepository.findByCreatedByOrderByCreatedAtDesc(currentUser.id()).stream()
-                                .map(this::buildResponse)
-                                .toList();
+                return ticketRepository.findByCreatedByOrderByCreatedAtDesc(currentUser.id())
+                                .stream().filter(t -> t.linkedTicketId() == null)
+                                .map(this::buildResponse).toList();
         }
 
         @Transactional(readOnly = true)
         public List<TicketResponse> getAssignedTickets(OAuth2User principal) {
                 User currentUser = resolveUser(principal);
-                return ticketRepository.findByAssignedToOrderByCreatedAtDesc(currentUser.id()).stream()
-                                .map(this::buildResponse)
-                                .toList();
+                return ticketRepository.findByAssignedToOrderByCreatedAtDesc(currentUser.id())
+                                .stream().filter(t -> t.linkedTicketId() == null)
+                                .map(this::buildResponse).toList();
+        }
+
+        @Transactional(readOnly = true)
+        public List<AttachmentResponse> getAttachments(UUID ticketId) {
+                findTicket(ticketId);
+                return attachmentRepository.findByTicketId(ticketId)
+                                .stream().map(this::toAttachmentResponse).toList();
+        }
+
+        public void deleteAttachment(UUID ticketId, UUID attachmentId, OAuth2User principal) throws IOException {
+                User currentUser = resolveUser(principal);
+                TicketAttachment attachment = attachmentRepository.findById(attachmentId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Attachment not found: " + attachmentId));
+
+                if (!attachment.ticketId().equals(ticketId)) {
+                        throw new ResourceNotFoundException("Attachment does not belong to this ticket");
+                }
+                if (!attachment.uploadedBy().equals(currentUser.id()) && !isAdmin(currentUser)) {
+                        throw new UnauthorizedActionException("You can only delete your own attachments");
+                }
+
+                cloudinaryService.delete(attachment.storagePath());
+                attachmentRepository.deleteById(attachmentId);
         }
 
         // WORKFLOW
@@ -171,7 +218,7 @@ public class TicketService {
                 User currentUser = resolveUser(principal);
                 Ticket ticket = findTicket(ticketId);
 
-                validateStatusTransition(ticket.status(), request.status(), currentUser);
+                validateStatusTransition(ticket.status(), request.status(), currentUser, ticket);
 
                 String rejectionReason = ticket.rejectionReason();
                 if (request.status() == TicketStatus.REJECTED) {
@@ -187,10 +234,9 @@ public class TicketService {
                                 ticket.preferredContact(), request.status(), rejectionReason,
                                 ticket.assignedTo(), ticket.resolutionNotes(), ticket.linkedTicketId(),
                                 ticket.linkedReportersCount(), ticket.createdAt(), null);
-
                 Ticket saved = ticketRepository.save(updated);
 
-                // Remove from index if ticket is finalized
+                // Remove from Lucene when ticket is no longer open
                 if (request.status() == TicketStatus.RESOLVED
                                 || request.status() == TicketStatus.CLOSED
                                 || request.status() == TicketStatus.REJECTED) {
@@ -200,6 +246,8 @@ public class TicketService {
                                 log.warn("Lucene remove failed: {}", e.getMessage());
                         }
                 }
+
+                syncLinkedChildrenStatus(saved);
 
                 return buildResponse(saved);
         }
@@ -226,7 +274,9 @@ public class TicketService {
                                 ticket.preferredContact(), ticket.status(), ticket.rejectionReason(),
                                 technicianId, ticket.resolutionNotes(), ticket.linkedTicketId(),
                                 ticket.linkedReportersCount(), ticket.createdAt(), null);
-                return buildResponse(ticketRepository.save(updated));
+                Ticket saved = ticketRepository.save(updated);
+                syncLinkedChildrenAssignment(saved);
+                return buildResponse(saved);
         }
 
         public TicketResponse addResolutionNotes(UUID ticketId, ResolutionNotesRequest request, OAuth2User principal) {
@@ -247,41 +297,29 @@ public class TicketService {
                                 ticket.preferredContact(), ticket.status(), ticket.rejectionReason(),
                                 ticket.assignedTo(), request.resolutionNotes(), ticket.linkedTicketId(),
                                 ticket.linkedReportersCount(), ticket.createdAt(), null);
-                return buildResponse(ticketRepository.save(updated));
-        }
-
-        @Transactional(readOnly = true)
-        public List<AttachmentResponse> getAttachments(UUID ticketId) {
-                findTicket(ticketId); // validate ticket exists
-                return attachmentRepository.findByTicketId(ticketId).stream()
-                                .map(this::toAttachmentResponse)
-                                .toList();
-        }
-
-        public void deleteAttachment(UUID ticketId, UUID attachmentId, OAuth2User principal) throws IOException {
-                User currentUser = resolveUser(principal);
-                TicketAttachment attachment = attachmentRepository.findById(attachmentId)
-                                .orElseThrow(() -> new ResourceNotFoundException(
-                                                "Attachment not found: " + attachmentId));
-
-                if (!attachment.ticketId().equals(ticketId)) {
-                        throw new ResourceNotFoundException("Attachment does not belong to this ticket");
-                }
-                if (!attachment.uploadedBy().equals(currentUser.id()) && !isAdmin(currentUser)) {
-                        throw new UnauthorizedActionException("You can only delete your own attachments");
-                }
-
-                cloudinaryService.delete(attachment.storagePath());
-                attachmentRepository.deleteById(attachmentId);
+                Ticket saved = ticketRepository.save(updated);
+                syncLinkedChildrenResolution(saved);
+                return buildResponse(saved);
         }
 
         // HELPERS
 
-        private void validateStatusTransition(TicketStatus current, TicketStatus next, User actor) {
-                // Technicians can move OPEN→IN_PROGRESS→RESOLVED
-                // Admins can do all transitions including REJECTED and CLOSED
-                boolean isAdmin = isAdmin(actor);
+        /**
+         * Fix #1 — students have no status transitions (enforced in frontend too).
+         * Fix #3 — REJECTED: SUPER_ADMIN can always reject; DOMAIN_ADMIN only for their
+         * domain.
+         */
+        private void validateStatusTransition(TicketStatus current, TicketStatus next,
+                        User actor, Ticket ticket) {
+                boolean isSuperAdmin = actor.role() == UserRole.SUPER_ADMIN;
+                boolean isDomainAdmin = actor.role() == UserRole.DOMAIN_ADMIN;
+                boolean isAdmin = isSuperAdmin || isDomainAdmin;
                 boolean isTechnician = actor.role() == UserRole.TECHNICIAN;
+
+                // Students have no allowed transitions at all
+                if (!isAdmin && !isTechnician) {
+                        throw new UnauthorizedActionException("You do not have permission to change ticket status");
+                }
 
                 switch (next) {
                         case IN_PROGRESS -> {
@@ -305,6 +343,13 @@ public class TicketService {
                         case REJECTED -> {
                                 if (!isAdmin)
                                         throw new UnauthorizedActionException("Only admin can reject tickets");
+                                // Fix #3 — domain admin may only reject tickets in their own domain
+                                if (isDomainAdmin) {
+                                        if (ticket.domainId() == null || !ticket.domainId().equals(actor.domainId())) {
+                                                throw new UnauthorizedActionException(
+                                                                "Domain admins can only reject tickets belonging to their own domain");
+                                        }
+                                }
                         }
                         default -> throw new IllegalStateException("Invalid target status: " + next);
                 }
@@ -329,6 +374,42 @@ public class TicketService {
                 return user.role() == UserRole.SUPER_ADMIN || user.role() == UserRole.DOMAIN_ADMIN;
         }
 
+        private void syncLinkedChildrenStatus(Ticket parent) {
+                for (Ticket child : ticketRepository.findByLinkedTicketIdOrderByCreatedAtDesc(parent.id())) {
+                        Ticket updatedChild = new Ticket(
+                                        child.id(), child.createdBy(), child.domainId(), child.resourceId(),
+                                        child.location(), child.category(), child.description(), child.priority(),
+                                        child.preferredContact(), parent.status(), parent.rejectionReason(),
+                                        child.assignedTo(), child.resolutionNotes(), child.linkedTicketId(),
+                                        child.linkedReportersCount(), child.createdAt(), null);
+                        ticketRepository.save(updatedChild);
+                }
+        }
+
+        private void syncLinkedChildrenAssignment(Ticket parent) {
+                for (Ticket child : ticketRepository.findByLinkedTicketIdOrderByCreatedAtDesc(parent.id())) {
+                        Ticket updatedChild = new Ticket(
+                                        child.id(), child.createdBy(), child.domainId(), child.resourceId(),
+                                        child.location(), child.category(), child.description(), child.priority(),
+                                        child.preferredContact(), child.status(), child.rejectionReason(),
+                                        parent.assignedTo(), child.resolutionNotes(), child.linkedTicketId(),
+                                        child.linkedReportersCount(), child.createdAt(), null);
+                        ticketRepository.save(updatedChild);
+                }
+        }
+
+        private void syncLinkedChildrenResolution(Ticket parent) {
+                for (Ticket child : ticketRepository.findByLinkedTicketIdOrderByCreatedAtDesc(parent.id())) {
+                        Ticket updatedChild = new Ticket(
+                                        child.id(), child.createdBy(), child.domainId(), child.resourceId(),
+                                        child.location(), child.category(), child.description(), child.priority(),
+                                        child.preferredContact(), child.status(), child.rejectionReason(),
+                                        child.assignedTo(), parent.resolutionNotes(), child.linkedTicketId(),
+                                        child.linkedReportersCount(), child.createdAt(), null);
+                        ticketRepository.save(updatedChild);
+                }
+        }
+
         TicketResponse buildResponse(Ticket t) {
                 String createdByName = userRepository.findById(t.createdBy())
                                 .map(User::fullName).orElse("Unknown");
@@ -339,13 +420,16 @@ public class TicketService {
                                 .stream().map(this::toAttachmentResponse).toList();
 
                 long commentCount = commentRepository.countByTicketId(t.id());
+                int linkedReportersCount = (int) Math.max(
+                                t.linkedReportersCount(),
+                                ticketRepository.countByLinkedTicketId(t.id()));
 
                 return new TicketResponse(
                                 t.id(), t.createdBy(), createdByName, t.domainId(), t.resourceId(),
                                 t.location(), t.category(), t.description(), t.priority(),
                                 t.preferredContact(), t.status(), t.rejectionReason(),
                                 t.assignedTo(), assignedToName, t.resolutionNotes(),
-                                t.linkedTicketId(), t.linkedReportersCount(),
+                                t.linkedTicketId(), linkedReportersCount,
                                 attachments, commentCount, t.createdAt(), t.updatedAt());
         }
 
