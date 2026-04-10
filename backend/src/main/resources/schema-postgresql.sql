@@ -118,6 +118,29 @@ CREATE TABLE IF NOT EXISTS ticket_comments (
     updated_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS resource_types (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        VARCHAR(100) NOT NULL UNIQUE,   -- e.g. 'LECTURE_HALL', 'LAB', 'MEETING_ROOM', 'EQUIPMENT'
+    description TEXT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS resources (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    domain_id     UUID NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
+    resource_type VARCHAR(100) NOT NULL,
+    name          VARCHAR(255) NOT NULL,
+    description   TEXT,
+    location      VARCHAR(255) NOT NULL,
+    capacity      INT CHECK (capacity >= 0),
+    status        VARCHAR(30) NOT NULL DEFAULT 'ACTIVE',
+    metadata      TEXT,
+    created_by    UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+
 -- Notifications Table
 CREATE TABLE IF NOT EXISTS notifications (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
