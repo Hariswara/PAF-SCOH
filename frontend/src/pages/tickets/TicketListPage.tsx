@@ -1,24 +1,21 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyTickets, useAllTickets, useAssignedTickets } from '@/hooks/useTickets';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TicketStatusBadge } from '@/components/tickets/TicketStatusBadge';
 import { TicketPriorityBadge } from '@/components/tickets/TicketPriorityBadge';
 import { format } from 'date-fns';
-import { PlusIcon, TicketIcon } from 'lucide-react';
+import { Plus, Ticket as TicketIcon } from 'lucide-react';
 import type { TicketResponse } from '@/types/ticket';
 
 const CATEGORY_LABELS: Record<string, string> = {
-    ELECTRICAL: 'Electrical',
-    PLUMBING: 'Plumbing',
-    HVAC: 'HVAC',
-    EQUIPMENT: 'Equipment',
-    NETWORK: 'Network',
-    OTHER: 'Other',
+    ELECTRICAL: 'Electrical', PLUMBING: 'Plumbing', HVAC: 'HVAC',
+    EQUIPMENT: 'Equipment', NETWORK: 'Network', OTHER: 'Other',
 };
+
+// ─── Ticket table ─────────────────────────────────────────────────────────────
 
 function TicketTable({ tickets, isLoading }: { tickets: TicketResponse[]; isLoading: boolean }) {
     const navigate = useNavigate();
@@ -26,66 +23,88 @@ function TicketTable({ tickets, isLoading }: { tickets: TicketResponse[]; isLoad
     if (isLoading) {
         return (
             <div className="flex justify-center py-20">
-                <div className="w-8 h-8 border-4 border-secondary border-t-primary rounded-full animate-spin" />
+                <div
+                    className="w-8 h-8 rounded-full border-[3px] animate-spin"
+                    style={{ borderColor: '#2D7A3A', borderTopColor: 'transparent' }}
+                />
             </div>
         );
     }
 
     if (tickets.length === 0) {
         return (
-            <div className="py-20 text-center text-muted-foreground font-light italic">
+            <div
+                className="py-20 text-center text-[14px] rounded-md"
+                style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif', border: '1px dashed #E2E8DF' }}
+            >
                 No tickets found.
             </div>
         );
     }
 
     return (
-        <div className="bg-card border border-border shadow-sm overflow-hidden">
+        <div className="rounded-lg overflow-hidden" style={{ border: '1px solid #E2E8DF' }}>
             <Table>
                 <TableHeader>
-                    <TableRow className="bg-muted/50 border-b border-border">
-                        <TableHead className="font-semibold text-xs uppercase tracking-wider text-primary py-4 pl-6">Location / Category</TableHead>
-                        <TableHead className="font-semibold text-xs uppercase tracking-wider text-primary py-4">Priority</TableHead>
-                        <TableHead className="font-semibold text-xs uppercase tracking-wider text-primary py-4">Status</TableHead>
-                        <TableHead className="font-semibold text-xs uppercase tracking-wider text-primary py-4">Reported</TableHead>
-                        <TableHead className="font-semibold text-xs uppercase tracking-wider text-primary py-4">Assigned To</TableHead>
-                        <TableHead className="font-semibold text-xs uppercase tracking-wider text-primary py-4 text-right pr-6">Action</TableHead>
+                    <TableRow style={{ background: '#F2F5F0', borderBottom: '1px solid #E2E8DF' }}>
+                        {['Location / Category', 'Priority', 'Status', 'Reported', 'Assigned To', ''].map((h) => (
+                            <TableHead
+                                key={h}
+                                className="text-[10px] font-semibold uppercase tracking-[0.18em] py-3.5"
+                                style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+                            >
+                                {h}
+                            </TableHead>
+                        ))}
                     </TableRow>
                 </TableHeader>
-                <TableBody className="divide-y divide-border">
+                <TableBody>
                     {tickets.map((t) => (
                         <TableRow
                             key={t.id}
-                            className="hover:bg-muted/30 transition-colors cursor-pointer"
+                            className="cursor-pointer"
+                            style={{ borderBottom: '1px solid #E2E8DF' }}
                             onClick={() => navigate(`/tickets/${t.id}`)}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = '#F2F5F0')}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                         >
-                            <TableCell className="py-5 pl-6">
-                                <p className="font-serif text-base font-bold text-primary">{t.location}</p>
-                                <p className="text-xs text-muted-foreground font-light">{CATEGORY_LABELS[t.category] ?? t.category}</p>
+                            <TableCell className="py-4 pl-4">
+                                <p className="text-[14px] font-semibold" style={{ color: '#1A2E1A', fontFamily: 'Albert Sans, sans-serif' }}>
+                                    {t.location}
+                                </p>
+                                <p className="text-[11px] mt-0.5" style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}>
+                                    {CATEGORY_LABELS[t.category] ?? t.category}
+                                </p>
                             </TableCell>
-                            <TableCell className="py-5">
-                                <TicketPriorityBadge priority={t.priority} />
-                            </TableCell>
-                            <TableCell className="py-5">
-                                <TicketStatusBadge status={t.status} />
-                            </TableCell>
-                            <TableCell className="py-5">
-                                <p className="text-xs font-mono text-muted-foreground">
+                            <TableCell className="py-4"><TicketPriorityBadge priority={t.priority} /></TableCell>
+                            <TableCell className="py-4"><TicketStatusBadge status={t.status} /></TableCell>
+                            <TableCell className="py-4">
+                                <p className="font-mono text-[11px]" style={{ color: '#6B7B6B' }}>
                                     {format(new Date(t.createdAt), 'MMM dd, yyyy')}
                                 </p>
-                                <p className="text-[10px] font-mono text-muted-foreground/60">
+                                <p className="font-mono text-[10px] mt-0.5" style={{ color: '#6B7B6B', opacity: 0.6 }}>
                                     {t.createdByName}
                                 </p>
                             </TableCell>
-                            <TableCell className="py-5">
-                                <p className="text-sm text-muted-foreground">
-                                    {t.assignedToName ?? <span className="italic opacity-40">Unassigned</span>}
+                            <TableCell className="py-4">
+                                <p
+                                    className="text-[13px]"
+                                    style={{
+                                        color: t.assignedToName ? '#1A2E1A' : '#6B7B6B',
+                                        fontStyle: t.assignedToName ? 'normal' : 'italic',
+                                        fontFamily: 'Albert Sans, sans-serif',
+                                    }}
+                                >
+                                    {t.assignedToName ?? 'Unassigned'}
                                 </p>
                             </TableCell>
-                            <TableCell className="py-5 text-right pr-6">
+                            <TableCell className="py-4 pr-4 text-right">
                                 <button
-                                    className="text-xs font-bold uppercase tracking-widest text-secondary hover:text-primary transition-colors"
+                                    className="text-[11px] font-semibold uppercase tracking-wider transition-colors"
+                                    style={{ color: '#2D7A3A', fontFamily: 'Albert Sans, sans-serif' }}
                                     onClick={(e) => { e.stopPropagation(); navigate(`/tickets/${t.id}`); }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.color = '#1A2E1A')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.color = '#2D7A3A')}
                                 >
                                     View →
                                 </button>
@@ -98,75 +117,130 @@ function TicketTable({ tickets, isLoading }: { tickets: TicketResponse[]; isLoad
     );
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 const TicketListPage: React.FC = () => {
     const { user } = useAuth();
-    const canCreateTicket = user?.role === 'STUDENT' || user?.role === 'DOMAIN_ADMIN';
-    const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'DOMAIN_ADMIN';
+    const navigate = useNavigate();
+
+    const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+    const isDomainAdmin = user?.role === 'DOMAIN_ADMIN';
+    const isAdmin = isSuperAdmin || isDomainAdmin;
     const isTechnician = user?.role === 'TECHNICIAN';
 
-    const defaultTab = isAdmin ? 'all' : isTechnician ? 'assigned' : 'mine';
-    const [tab, setTab] = useState(defaultTab);
+    // Only STUDENT and DOMAIN_ADMIN can create tickets
+    const canCreate = user?.role === 'STUDENT' || user?.role === 'DOMAIN_ADMIN';
 
+    // ── Tab layout per role ──────────────────────────────────────────────────
+    //
+    //  SUPER_ADMIN   →  "All Tickets" only
+    //  DOMAIN_ADMIN  →  "My Tickets" + "Assigned Tickets" + "All Tickets"
+    //  TECHNICIAN    →  "Assigned to Me" only
+    //  STUDENT       →  "My Tickets" only
+    //
+    const getDefaultTab = () => {
+        if (isSuperAdmin) return 'all';
+        if (isDomainAdmin) return 'mine';   // lands on My Tickets first
+        if (isTechnician) return 'assigned';
+        return 'mine';
+    };
+
+    const [tab, setTab] = useState<string>('mine');
+
+    useEffect(() => {
+        setTab(getDefaultTab());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isSuperAdmin, isDomainAdmin, isTechnician]);
+
+    // ── Data ─────────────────────────────────────────────────────────────────
     const { tickets: myTickets, isLoading: loadingMine } = useMyTickets();
     const { tickets: allTickets, isLoading: loadingAll } = useAllTickets();
-    const { tickets: assignedTickets, isLoading: loadingAssigned } = useAssignedTickets();
+    // For TECHNICIAN  → GET /api/tickets/assigned (assignedTo = current user)
+    // For DOMAIN_ADMIN → derived client-side from allTickets (tickets that have any technician assigned)
+    const { tickets: techAssignedTickets, isLoading: loadingTechAssigned } = useAssignedTickets();
+
+    const adminAssignedTickets = useMemo(
+        () => allTickets.filter((t) => t.assignedTo !== null && t.assignedToName !== null),
+        [allTickets],
+    );
+
+    // Which dataset powers the "assigned" tab
+    const assignedTickets = isDomainAdmin ? adminAssignedTickets : techAssignedTickets;
+    const loadingAssigned = isDomainAdmin ? loadingAll : loadingTechAssigned;
 
     return (
-        <div className="min-h-screen bg-background text-foreground pb-20 font-sans">
-            <header className="bg-primary text-primary-foreground py-8 px-8 mb-8 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
-                <div className="max-w-7xl mx-auto relative z-10">
-                    <Link
-                        to="/dashboard"
-                        className="text-xs font-bold uppercase tracking-widest text-secondary hover:text-white transition-colors flex items-center mb-4"
-                    >
-                        <span className="mr-2">←</span> Return to Dashboard
-                    </Link>
-                    <div className="flex justify-between items-end">
-                        <div>
-                            <h1 className="text-4xl font-serif mb-2">Maintenance Tickets</h1>
-                            <p className="text-primary-foreground/70 font-light max-w-xl text-sm">
-                                Report and track facility incidents and technical issues across campus.
-                            </p>
+        <div className="p-6 sm:p-8 max-w-[1400px] mx-auto page-enter">
+
+            {/* Header */}
+            <header className="mb-8">
+                <div className="flex items-start justify-between">
+                    <div>
+                        <p
+                            className="text-[10px] font-semibold uppercase tracking-[0.25em] mb-2"
+                            style={{ color: '#2D7A3A', fontFamily: 'Albert Sans, sans-serif' }}
+                        >
+                            Support
+                        </p>
+                        <div className="flex items-center gap-3 mb-1">
+                            <TicketIcon size={22} style={{ color: '#7B6BA5' }} />
+                            <h1
+                                className="font-serif leading-tight"
+                                style={{ color: '#1A2E1A', fontSize: 'clamp(26px, 3vw, 34px)' }}
+                            >
+                                Maintenance Tickets
+                            </h1>
                         </div>
-                        {canCreateTicket && (
-                            <Link to="/tickets/new">
-                                <Button className="h-10 bg-secondary text-white hover:bg-secondary/80 font-bold tracking-widest uppercase text-xs flex items-center gap-2">
-                                    <PlusIcon className="size-4" /> New Ticket
-                                </Button>
-                            </Link>
-                        )}
+                        <p className="text-[14px] leading-relaxed" style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}>
+                            Report and track facility incidents and technical issues across campus.
+                        </p>
                     </div>
+
+                    {canCreate && (
+                        <button
+                            onClick={() => navigate('/tickets/new')}
+                            className="flex items-center gap-2 h-9 px-4 rounded-md text-[12px] font-semibold uppercase tracking-wider transition-opacity hover:opacity-80"
+                            style={{ background: '#2D7A3A', color: '#FFFFFF', fontFamily: 'Albert Sans, sans-serif' }}
+                        >
+                            <Plus size={14} /> New Ticket
+                        </button>
+                    )}
                 </div>
+                <div className="mt-5 h-px" style={{ background: 'linear-gradient(90deg, #E2E8DF 0%, transparent 70%)' }} />
             </header>
 
-            <main className="max-w-7xl mx-auto px-8">
-                <Tabs value={tab} onValueChange={setTab}>
-                    <TabsList className="mb-6">
-                        {user?.role !== 'SUPER_ADMIN' && user?.role !== 'DOMAIN_ADMIN' && !isTechnician && (
-                            <TabsTrigger value="mine">
-                                <TicketIcon className="size-4" /> My Tickets
-                            </TabsTrigger>
-                        )}
-                        {isTechnician && (
-                            <TabsTrigger value="assigned">Assigned to Me</TabsTrigger>
-                        )}
-                        {isAdmin && (
-                            <TabsTrigger value="all">All Tickets</TabsTrigger>
-                        )}
-                    </TabsList>
+            <Tabs value={tab} onValueChange={setTab}>
+                <TabsList className="mb-6">
 
-                    <TabsContent value="mine">
-                        <TicketTable tickets={myTickets} isLoading={loadingMine} />
-                    </TabsContent>
-                    <TabsContent value="assigned">
-                        <TicketTable tickets={assignedTickets} isLoading={loadingAssigned} />
-                    </TabsContent>
-                    <TabsContent value="all">
-                        <TicketTable tickets={allTickets} isLoading={loadingAll} />
-                    </TabsContent>
-                </Tabs>
-            </main>
+                    {/* My Tickets — STUDENT and DOMAIN_ADMIN */}
+                    {!isSuperAdmin && !isTechnician && (
+                        <TabsTrigger value="mine">My Tickets</TabsTrigger>
+                    )}
+
+                    {/* Assigned — TECHNICIAN ("Assigned to Me") and DOMAIN_ADMIN ("Assigned Tickets") */}
+                    {(isTechnician || isDomainAdmin) && (
+                        <TabsTrigger value="assigned">
+                            {isTechnician ? 'Assigned to Me' : 'Assigned Tickets'}
+                        </TabsTrigger>
+                    )}
+
+                    {/* All Tickets — SUPER_ADMIN and DOMAIN_ADMIN */}
+                    {isAdmin && (
+                        <TabsTrigger value="all">All Tickets</TabsTrigger>
+                    )}
+                </TabsList>
+
+                <TabsContent value="mine">
+                    <TicketTable tickets={myTickets} isLoading={loadingMine} />
+                </TabsContent>
+
+                <TabsContent value="assigned">
+                    <TicketTable tickets={assignedTickets} isLoading={loadingAssigned} />
+                </TabsContent>
+
+                <TabsContent value="all">
+                    <TicketTable tickets={allTickets} isLoading={loadingAll} />
+                </TabsContent>
+            </Tabs>
         </div>
     );
 };

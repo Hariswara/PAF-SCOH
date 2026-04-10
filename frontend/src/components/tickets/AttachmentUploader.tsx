@@ -1,14 +1,13 @@
 import React, { useRef } from 'react';
 import { UploadIcon, XIcon, ImageIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 interface Props {
     pendingFiles: File[];
     onFilesChange: (files: File[]) => void;
     maxFiles: number;
-    // For existing attachments on the detail page
     existingUrls?: { id: string; filename: string; publicUrl: string }[];
     onDeleteExisting?: (id: string) => void;
+    onError?: (message: string) => void;
 }
 
 export const AttachmentUploader: React.FC<Props> = ({
@@ -17,19 +16,30 @@ export const AttachmentUploader: React.FC<Props> = ({
     maxFiles,
     existingUrls = [],
     onDeleteExisting,
+    onError,
 }) => {
     const inputRef = useRef<HTMLInputElement>(null);
     const totalCount = existingUrls.length + pendingFiles.length;
 
     const handleFiles = (files: FileList | null) => {
         if (!files) return;
-        const allowed = maxFiles - totalCount;
-        if (allowed <= 0) return;
-        const selected = Array.from(files).slice(0, allowed);
-        const imageOnly = selected.filter((f) =>
-            ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(f.type)
+
+        // Fix #7 — validate total count before accepting new files
+        const incoming = Array.from(files);
+        if (totalCount + incoming.length > maxFiles) {
+            onError?.(
+                `You can attach at most ${maxFiles} image${maxFiles > 1 ? 's' : ''} per ticket. ` +
+                `You already have ${totalCount} — remove some before adding more.`,
+            );
+            if (inputRef.current) inputRef.current.value = '';
+            return;
+        }
+
+        const imageOnly = incoming.filter((f) =>
+            ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(f.type),
         );
         onFilesChange([...pendingFiles, ...imageOnly]);
+        if (inputRef.current) inputRef.current.value = '';
     };
 
     const removePending = (index: number) => {
@@ -39,39 +49,76 @@ export const AttachmentUploader: React.FC<Props> = ({
     };
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-2">
+
             {/* Existing attachments */}
             {existingUrls.map((a) => (
-                <div key={a.id} className="flex items-center gap-3 bg-muted/30 border border-border p-3">
-                    <a href={a.publicUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 flex-1 min-w-0">
-                        <ImageIcon className="size-4 text-muted-foreground shrink-0" />
-                        <span className="text-xs text-primary truncate font-medium">{a.filename}</span>
+                <div
+                    key={a.id}
+                    className="flex items-center gap-3 p-3 rounded-md"
+                    style={{ background: '#F2F5F0', border: '1px solid #E2E8DF' }}
+                >
+                    <a
+                        href={a.publicUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 flex-1 min-w-0"
+                    >
+                        <ImageIcon size={14} style={{ color: '#6B7B6B', flexShrink: 0 }} />
+                        <span
+                            className="text-[12px] truncate"
+                            style={{ color: '#2D7A3A', fontFamily: 'Albert Sans, sans-serif' }}
+                        >
+                            {a.filename}
+                        </span>
                     </a>
                     {onDeleteExisting && (
                         <button
                             type="button"
                             onClick={() => onDeleteExisting(a.id)}
-                            className="text-destructive hover:text-destructive/70 transition-colors"
+                            style={{ color: '#D94444' }}
+                            className="transition-opacity hover:opacity-70 shrink-0"
+                            aria-label="Remove attachment"
                         >
-                            <XIcon className="size-4" />
+                            <XIcon size={14} />
                         </button>
                     )}
                 </div>
             ))}
 
-            {/* Pending files */}
+            {/* Pending (not-yet-uploaded) files */}
             {pendingFiles.map((f, i) => (
-                <div key={i} className="flex items-center gap-3 bg-secondary/5 border border-secondary/30 p-3">
-                    <ImageIcon className="size-4 text-secondary shrink-0" />
-                    <span className="text-xs text-primary flex-1 truncate font-medium">{f.name}</span>
-                    <span className="text-[10px] text-muted-foreground">{(f.size / 1024).toFixed(0)} KB</span>
-                    <button type="button" onClick={() => removePending(i)} className="text-destructive hover:text-destructive/70">
-                        <XIcon className="size-4" />
+                <div
+                    key={i}
+                    className="flex items-center gap-3 p-3 rounded-md"
+                    style={{ background: 'rgba(45,122,58,0.04)', border: '1px solid rgba(45,122,58,0.2)' }}
+                >
+                    <ImageIcon size={14} style={{ color: '#2D7A3A', flexShrink: 0 }} />
+                    <span
+                        className="text-[12px] flex-1 truncate"
+                        style={{ color: '#1A2E1A', fontFamily: 'Albert Sans, sans-serif' }}
+                    >
+                        {f.name}
+                    </span>
+                    <span
+                        className="text-[10px] shrink-0"
+                        style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+                    >
+                        {(f.size / 1024).toFixed(0)} KB
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => removePending(i)}
+                        style={{ color: '#D94444' }}
+                        className="transition-opacity hover:opacity-70 shrink-0"
+                        aria-label="Remove pending file"
+                    >
+                        <XIcon size={14} />
                     </button>
                 </div>
             ))}
 
-            {/* Upload trigger */}
+            {/* Upload trigger — hidden when limit reached */}
             {totalCount < maxFiles && (
                 <>
                     <input
@@ -85,11 +132,17 @@ export const AttachmentUploader: React.FC<Props> = ({
                     <button
                         type="button"
                         onClick={() => inputRef.current?.click()}
-                        className="w-full border-2 border-dashed border-border hover:border-secondary transition-colors p-6 flex flex-col items-center gap-2 group"
+                        className="w-full flex flex-col items-center gap-2 p-6 rounded-md border-2 border-dashed transition-colors"
+                        style={{ borderColor: '#E2E8DF' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#5B8C5A')}
+                        onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#E2E8DF')}
                     >
-                        <UploadIcon className="size-6 text-muted-foreground group-hover:text-secondary transition-colors" />
-                        <p className="text-xs text-muted-foreground group-hover:text-primary transition-colors">
-                            Click to upload ({totalCount}/{maxFiles} images) — JPEG, PNG, WEBP, GIF
+                        <UploadIcon size={18} style={{ color: '#6B7B6B' }} />
+                        <p
+                            className="text-[12px]"
+                            style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+                        >
+                            Click to upload ({totalCount}/{maxFiles}) — JPEG, PNG, WEBP, GIF
                         </p>
                     </button>
                 </>
