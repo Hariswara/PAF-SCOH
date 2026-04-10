@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Collection;
 import java.util.UUID;
+import java.util.List;
 
 import org.springframework.data.repository.ListCrudRepository;
 
@@ -20,3 +21,15 @@ public interface BookingRepository extends ListCrudRepository<Booking, Long> {
             Collection<BookingStatus> statuses
     );
 }//
+    List<Booking> findByCreatedByOrderByCreatedAtDesc(String createdBy);
+
+    List<Booking> findByCreatedByAndStatusOrderByCreatedAtDesc(String createdBy, BookingStatus status);
+
+    List<Booking> findByCreatedByAndDateOrderByCreatedAtDesc(String createdBy, LocalDate date);
+
+    List<Booking> findByCreatedByAndStatusAndDateOrderByCreatedAtDesc(
+            String createdBy,
+            BookingStatus status,
+            LocalDate date
+    );
+}

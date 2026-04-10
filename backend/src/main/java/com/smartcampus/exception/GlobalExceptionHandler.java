@@ -70,6 +70,7 @@ public class GlobalExceptionHandler {
                 "timestamp", Instant.now(),
                 "status", HttpStatus.BAD_REQUEST.value(),
                 "message", ex.getMessage());
+
         return ResponseEntity.badRequest().body(body);
     }
 
