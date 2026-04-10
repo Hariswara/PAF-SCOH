@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import NotificationBell from '@/components/notifications/NotificationBell';
 import {
   LayoutDashboard, BookMarked, CalendarCheck, Ticket,
   Users, Globe2, ShieldAlert, UserCircle, LogOut, Menu, X,
@@ -29,7 +30,7 @@ const ROLE_META: Record<string, { label: string; color: string }> = {
 interface NavItem {
   label: string;
   href: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>;
 }
 
 const coreNav: NavItem[] = [
@@ -125,7 +126,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         >
           <GraduationCap size={13} style={{ color: '#FFFFFF' }} />
         </div>
-        <div>
+        <div className="flex-1">
           <p
             className="text-[11px] uppercase tracking-[0.2em] font-semibold leading-none"
             style={{ color: C.green, fontFamily: 'Albert Sans, sans-serif' }}
@@ -139,6 +140,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             Operations Hub
           </p>
         </div>
+        <NotificationBell />
       </div>
 
       {/* Nav */}
@@ -312,7 +314,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           >
             SmartCampus
           </span>
-          <div className="w-5" />
+          <NotificationBell />
         </div>
 
         <main className="flex-1 overflow-y-auto">

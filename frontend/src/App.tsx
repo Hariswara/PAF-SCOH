@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 import { AuthGuard, GuestGuard } from '@/components/auth/AuthGuard';
 import AppLayout from '@/components/layout/AppLayout';
 
@@ -14,6 +15,7 @@ import AuditLogPage from '@/pages/admin/AuditLogPage';
 import BookingsPage from '@/pages/BookingsPage';
 import ResourcesPage from '@/pages/ResourcesPage';
 import ProfilePage from '@/pages/ProfilePage';
+import NotificationsPage from '@/pages/NotificationsPage';
 
 // Tickets
 import TicketListPage from '@/pages/tickets/TicketListPage';
@@ -38,6 +40,7 @@ function ProtectedPage({
 function App() {
   return (
     <AuthProvider>
+      <NotificationProvider>
       <BrowserRouter>
         <Routes>
           {/* ── Public / Guest ── */}
@@ -77,6 +80,7 @@ function App() {
           <Route path="/bookings" element={<ProtectedPage><BookingsPage /></ProtectedPage>} />
           <Route path="/resources" element={<ProtectedPage><ResourcesPage /></ProtectedPage>} />
           <Route path="/profile" element={<ProtectedPage><ProfilePage /></ProtectedPage>} />
+          <Route path="/notifications" element={<ProtectedPage><NotificationsPage /></ProtectedPage>} />
 
           {/* ── Tickets ── */}
           <Route path="/tickets" element={<ProtectedPage><TicketListPage /></ProtectedPage>} />
@@ -93,6 +97,7 @@ function App() {
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
+      </NotificationProvider>
     </AuthProvider>
   );
 }
