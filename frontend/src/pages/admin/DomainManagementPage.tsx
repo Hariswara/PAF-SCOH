@@ -4,26 +4,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link } from 'react-router-dom';
+import { Globe2, Plus, ArrowLeft } from 'lucide-react';
 
-interface Domain {
-  id: string;
-  name: string;
-  description?: string;
-  isActive: boolean;
-}
+interface Domain { id: string; name: string; description?: string; isActive: boolean; }
 
 const DomainManagementPage: React.FC = () => {
-  const [domains, setDomains] = useState<Domain[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [domains, setDomains]         = useState<Domain[]>([]);
+  const [isLoading, setIsLoading]     = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [newDomain, setNewDomain] = useState({ name: '', description: '' });
+  const [newDomain, setNewDomain]     = useState({ name: '', description: '' });
 
   const fetchDomains = async () => {
     try {
-      const response = await api.get('/domains');
-      setDomains(response.data);
-    } catch (error) {
-      console.error('Failed to fetch domains:', error);
+      const r = await api.get('/domains');
+      setDomains(r.data);
+    } catch (e) {
+      console.error('Failed to fetch domains:', e);
     } finally {
       setIsLoading(false);
     }
@@ -36,139 +32,243 @@ const DomainManagementPage: React.FC = () => {
       await api.post('/domains', newDomain);
       setNewDomain({ name: '', description: '' });
       fetchDomains();
-    } catch (error) {
+    } catch {
       alert('Failed to create domain. Ensure you are logged in as Super Admin.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleToggleStatus = async (id: string) => {
+  const handleToggle = async (id: string) => {
     try {
       await api.patch(`/domains/${id}/toggle-status`);
       fetchDomains();
-    } catch (error) {
+    } catch {
       alert('Failed to update domain status');
     }
   };
 
-  useEffect(() => {
-    fetchDomains();
-  }, []);
+  useEffect(() => { fetchDomains(); }, []);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 border-4 border-secondary border-t-primary rounded-full animate-spin"></div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div
+          className="w-8 h-8 rounded-full border-[3px] animate-spin"
+          style={{ borderColor: '#2D7A3A', borderTopColor: 'transparent' }}
+        />
       </div>
     );
   }
 
+  const inputClass = "h-11 bg-transparent text-[#1A2E1A] placeholder:text-[#B8C4B3] border-0 border-b rounded-none focus-visible:ring-0 px-0 text-[15px]";
+
   return (
-    <div className="min-h-screen bg-background text-foreground pb-20">
+    <div className="p-6 sm:p-8 max-w-[1400px] mx-auto page-enter">
+
+      {/* Back */}
+      <Link
+        to="/dashboard"
+        className="inline-flex items-center gap-1.5 mb-6 group"
+        style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+      >
+        <ArrowLeft size={13} className="transition-transform group-hover:-translate-x-0.5" />
+        <span className="text-[11px] font-semibold uppercase tracking-[0.15em] group-hover:text-[#1A2E1A] transition-colors">
+          Dashboard
+        </span>
+      </Link>
+
       {/* Header */}
-      <header className="bg-primary text-primary-foreground py-8 px-8 mb-8 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-        <div className="max-w-7xl mx-auto relative z-10">
-          <Link to="/dashboard" className="text-xs font-bold uppercase tracking-widest text-secondary hover:text-white transition-colors flex items-center mb-4">
-            <span className="mr-2">←</span> Return to Dashboard
-          </Link>
-          <h1 className="text-4xl font-serif mb-2">Domain Management</h1>
-          <p className="text-primary-foreground/70 font-light max-w-xl text-sm">
-            Configure and oversee the operational units within the university ecosystem.
-          </p>
+      <header className="mb-8">
+        <p
+          className="text-[10px] font-semibold uppercase tracking-[0.25em] mb-2"
+          style={{ color: '#2D7A3A', fontFamily: 'Albert Sans, sans-serif' }}
+        >
+          Administration
+        </p>
+        <div className="flex items-center gap-3 mb-1">
+          <Globe2 size={22} style={{ color: '#5B8C5A' }} />
+          <h1
+            className="font-serif leading-tight"
+            style={{ color: '#1A2E1A', fontSize: 'clamp(26px, 3vw, 34px)' }}
+          >
+            Domain Management
+          </h1>
         </div>
+        <p
+          className="text-[14px] leading-relaxed"
+          style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+        >
+          Configure and oversee the operational units within the university ecosystem.
+        </p>
+        <div
+          className="mt-5 h-px"
+          style={{ background: 'linear-gradient(90deg, #E2E8DF 0%, transparent 70%)' }}
+        />
       </header>
 
-      <div className="max-w-7xl mx-auto px-8 grid grid-cols-1 lg:grid-cols-3 gap-12">
-        {/* Create Section */}
-        <section className="lg:col-span-1 space-y-6">
-          <div>
-            <h2 className="text-2xl font-serif text-primary border-l-4 border-secondary pl-4 mb-2">Establish Unit</h2>
-            <p className="text-sm text-muted-foreground font-light mb-6">Define a new operational domain for the campus.</p>
-          </div>
-          
-          <form onSubmit={handleCreate} className="space-y-6 bg-card border border-border p-6 shadow-sm">
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Domain Name</label>
-              <Input 
-                placeholder="e.g. Science Laboratory Complex" 
-                value={newDomain.name} 
-                onChange={(e) => setNewDomain({ ...newDomain, name: e.target.value })}
-                required
-                className="h-12 bg-transparent border-0 border-b-2 border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0 text-base"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Description</label>
-              <Input 
-                placeholder="Brief operational purpose" 
-                value={newDomain.description} 
-                onChange={(e) => setNewDomain({ ...newDomain, description: e.target.value })}
-                className="h-12 bg-transparent border-0 border-b-2 border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0 text-base"
-              />
-            </div>
-            <Button 
-              type="submit" 
-              disabled={isSubmitting}
-              className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-bold tracking-widest uppercase text-xs"
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        {/* Create panel */}
+        <section className="lg:col-span-1">
+          <div
+            className="p-6 rounded-lg"
+            style={{ background: '#FFFFFF', border: '1px solid #E2E8DF' }}
+          >
+            <h2 className="font-serif text-[20px] mb-1" style={{ color: '#1A2E1A' }}>
+              Establish Unit
+            </h2>
+            <p
+              className="text-[13px] mb-6"
+              style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
             >
-              {isSubmitting ? 'Registering...' : 'Register Domain'}
-            </Button>
-          </form>
+              Define a new operational domain for the campus.
+            </p>
+
+            <form onSubmit={handleCreate} className="space-y-6">
+              <div className="space-y-2">
+                <label
+                  className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+                  style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+                >
+                  Domain Name
+                </label>
+                <Input
+                  placeholder="e.g. Science Laboratory Complex"
+                  value={newDomain.name}
+                  onChange={e => setNewDomain({ ...newDomain, name: e.target.value })}
+                  required
+                  className={inputClass}
+                  style={{ borderBottomColor: '#E2E8DF' }}
+                  onFocus={e  => (e.target.style.borderBottomColor = '#2D7A3A')}
+                  onBlur={e   => (e.target.style.borderBottomColor = '#E2E8DF')}
+                />
+              </div>
+              <div className="space-y-2">
+                <label
+                  className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+                  style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+                >
+                  Description
+                </label>
+                <Input
+                  placeholder="Brief operational purpose"
+                  value={newDomain.description}
+                  onChange={e => setNewDomain({ ...newDomain, description: e.target.value })}
+                  className={inputClass}
+                  style={{ borderBottomColor: '#E2E8DF' }}
+                  onFocus={e  => (e.target.style.borderBottomColor = '#2D7A3A')}
+                  onBlur={e   => (e.target.style.borderBottomColor = '#E2E8DF')}
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full h-11 font-semibold tracking-wider uppercase text-[12px] rounded-md"
+                style={{
+                  background: '#2D7A3A',
+                  color: '#FFFFFF',
+                  fontFamily: 'Albert Sans, sans-serif',
+                }}
+              >
+                <Plus size={14} className="mr-1.5" />
+                {isSubmitting ? 'Registering\u2026' : 'Register Domain'}
+              </Button>
+            </form>
+          </div>
         </section>
 
-        {/* List Section */}
-        <section className="lg:col-span-2 space-y-6">
-          <div>
-            <h2 className="text-2xl font-serif text-primary border-l-4 border-primary pl-4 mb-2">Active Infrastructure</h2>
-            <p className="text-sm text-muted-foreground font-light mb-6">Monitor and toggle the status of existing campus domains.</p>
-          </div>
-          
-          <div className="bg-card border border-border shadow-sm">
+        {/* Table */}
+        <section className="lg:col-span-2">
+          <h2 className="font-serif text-[20px] mb-1" style={{ color: '#1A2E1A' }}>
+            Active Infrastructure
+          </h2>
+          <p
+            className="text-[13px] mb-5"
+            style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+          >
+            Monitor and toggle the status of existing campus domains.
+          </p>
+
+          <div
+            className="rounded-lg overflow-hidden"
+            style={{ border: '1px solid #E2E8DF' }}
+          >
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/50 border-b border-border">
-                  <TableHead className="font-semibold text-xs uppercase tracking-wider text-primary py-4">Domain Name</TableHead>
-                  <TableHead className="font-semibold text-xs uppercase tracking-wider text-primary py-4">Purpose</TableHead>
-                  <TableHead className="font-semibold text-xs uppercase tracking-wider text-primary py-4">Status</TableHead>
-                  <TableHead className="font-semibold text-xs uppercase tracking-wider text-primary py-4 text-right">Action</TableHead>
+                <TableRow style={{ background: '#F2F5F0', borderBottom: '1px solid #E2E8DF' }}>
+                  {['Domain Name', 'Purpose', 'Status', ''].map(h => (
+                    <TableHead
+                      key={h}
+                      className={`text-[10px] font-semibold uppercase tracking-[0.18em] py-3.5 ${h === '' ? 'text-right pr-4' : ''}`}
+                      style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+                    >
+                      {h}
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {domains.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-12 text-muted-foreground font-light">
+                    <TableCell
+                      colSpan={4}
+                      className="text-center py-14"
+                      style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+                    >
                       No domains configured yet. Use the panel to establish the first unit.
                     </TableCell>
                   </TableRow>
-                ) : (
-                  domains.map((d) => (
-                    <TableRow key={d.id} className="group hover:bg-muted/30 transition-colors">
-                      <TableCell className="font-serif text-lg text-primary font-bold py-4">{d.name}</TableCell>
-                      <TableCell className="text-muted-foreground font-light text-sm py-4">{d.description || '—'}</TableCell>
-                      <TableCell className="py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-widest ${
-                          d.isActive 
-                            ? 'bg-green-100/50 text-green-700 border border-green-200' 
-                            : 'bg-red-100/50 text-red-700 border border-red-200'
-                        }`}>
-                          {d.isActive ? 'Active' : 'Suspended'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right py-4">
-                        <button 
-                          onClick={() => handleToggleStatus(d.id)}
-                          className={`text-xs font-bold uppercase tracking-widest transition-colors ${
-                            d.isActive ? 'text-destructive hover:text-destructive/70' : 'text-primary hover:text-secondary'
-                          }`}
-                        >
-                          {d.isActive ? 'Suspend' : 'Reactivate'}
-                        </button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
+                ) : domains.map(d => (
+                  <TableRow
+                    key={d.id}
+                    style={{ borderBottom: '1px solid #E2E8DF' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#F2F5F0')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <TableCell className="py-4 pl-4">
+                      <p className="font-serif text-[16px]" style={{ color: '#1A2E1A' }}>
+                        {d.name}
+                      </p>
+                    </TableCell>
+                    <TableCell className="py-4">
+                      <p
+                        className="text-[13px]"
+                        style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+                      >
+                        {d.description || '\u2014'}
+                      </p>
+                    </TableCell>
+                    <TableCell className="py-4">
+                      <span
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider"
+                        style={{
+                          background: d.isActive ? 'rgba(45,122,58,0.08)'  : 'rgba(217,68,68,0.08)',
+                          color:      d.isActive ? '#2D7A3A'                : '#D94444',
+                          fontFamily: 'Albert Sans, sans-serif',
+                        }}
+                      >
+                        <span
+                          className="w-1.5 h-1.5 rounded-full"
+                          style={{ background: d.isActive ? '#2D7A3A' : '#D94444' }}
+                        />
+                        {d.isActive ? 'Active' : 'Suspended'}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right py-4 pr-4">
+                      <button
+                        onClick={() => handleToggle(d.id)}
+                        className="text-[12px] font-semibold uppercase tracking-wider transition-colors"
+                        style={{
+                          color: d.isActive ? '#D94444' : '#2D7A3A',
+                          fontFamily: 'Albert Sans, sans-serif',
+                        }}
+                      >
+                        {d.isActive ? 'Suspend' : 'Reactivate'}
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>

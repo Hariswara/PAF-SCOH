@@ -35,20 +35,31 @@ public class SecurityConfig {
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(requestHandler)
                 .ignoringRequestMatchers("/api/auth/logout")
+                .ignoringRequestMatchers("/api/auth/passkey/login/**")
             )
             .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
             .addFilterAfter(new UserStatusFilter(userRepository), CsrfCookieFilter.class)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/", "/index.html", "/static/**", "/*.png", "/*.ico", "/*.json").permitAll()
                 .requestMatchers("/api/auth/status").permitAll()
+                .requestMatchers("/api/auth/passkey/login/**").permitAll()
                 .requestMatchers("/api/auth/register/**").hasAuthority("STATUS_PENDING_PROFILE")
-                .requestMatchers("/api/v1/resources/**").permitAll()
+.requestMatchers("/api/v1/resources/**").permitAll()
                 // Domain management - Write actions are SUPER_ADMIN only
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/domains").hasRole("SUPER_ADMIN")
                 .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/domains/**").hasRole("SUPER_ADMIN")
                 .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/domains/**").hasRole("SUPER_ADMIN")
                 .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/domains/**").hasRole("SUPER_ADMIN")
-                
+
+                // Ticket endpoints – admin-only: assign technician
+                .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/tickets/*/assign")
+                    .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
+                // Duplicate check is open to any active user
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/tickets/duplicates/**")
+                    .hasAuthority("STATUS_ACTIVE")
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/tickets/duplicates/**")
+                    .hasAuthority("STATUS_ACTIVE")
+
                 .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
                 .requestMatchers("/api/**").hasAuthority("STATUS_ACTIVE")
                 .anyRequest().authenticated()
@@ -72,7 +83,7 @@ public class SecurityConfig {
                         response.sendRedirect("/oauth2/authorization/google");
                     }
                 })
-                .accessDeniedHandler((request, response, accessDeniedException) -> 
+                .accessDeniedHandler((request, response, accessDeniedException) ->
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: " + accessDeniedException.getMessage())
                 )
             );

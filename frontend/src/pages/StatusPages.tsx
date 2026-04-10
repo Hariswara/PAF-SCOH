@@ -7,7 +7,7 @@ export const PendingActivationPage: React.FC = () => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4 relative">
       <div className="absolute inset-0 pointer-events-none opacity-[0.03]">
-        <div className="h-full w-full" style={{ backgroundImage: 'radial-gradient(#0A1128 2px, transparent 2px)', backgroundSize: '30px 30px' }}></div>
+        <div className="h-full w-full" style={{ backgroundImage: 'radial-gradient(rgba(45,122,58,0.08) 2px, transparent 2px)', backgroundSize: '30px 30px' }}></div>
       </div>
       
       <div className="max-w-lg w-full p-12 bg-card border border-border shadow-xl text-center relative z-10">

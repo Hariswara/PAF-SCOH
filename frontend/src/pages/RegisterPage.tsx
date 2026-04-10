@@ -4,12 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import api from '@/lib/api';
+import PasskeyPrompt from '@/components/auth/PasskeyPrompt';
 
 const RegisterPage: React.FC = () => {
   const { user, logout, checkAuth } = useAuth();
   const [step, setStep] = useState<'fork' | 'student' | 'non-student'>('fork');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -23,6 +25,11 @@ const RegisterPage: React.FC = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handlePostRegisterNav = async () => {
+    setShowPasskeyPrompt(false);
+    await checkAuth(); // Refresh user state — AuthGuard handles the redirect
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -30,19 +37,20 @@ const RegisterPage: React.FC = () => {
 
     try {
       const endpoint = step === 'student' ? '/auth/register/student' : '/auth/register/non-student';
-      
-      // Clean request body: send only what's needed
-      const payload = step === 'student' 
+
+      const payload = step === 'student'
         ? { fullName: formData.fullName, studentId: formData.studentId, department: formData.department, phone: formData.phone }
         : { fullName: formData.fullName, phone: formData.phone };
 
       await api.post(endpoint, payload);
-      await checkAuth(); // Refresh user state to trigger redirect via AuthGuard
-    } catch (err: any) {
-      console.error('Registration error:', err.response?.data);
-      const serverMessage = err.response?.data?.message;
-      const validationErrors = err.response?.data?.errors;
-      
+
+      // Show passkey opt-in before navigating
+      setShowPasskeyPrompt(true);
+    } catch (err: unknown) {
+      const anyErr = err as { response?: { data?: { message?: string; errors?: Record<string, string> } } };
+      const serverMessage = anyErr.response?.data?.message;
+      const validationErrors = anyErr.response?.data?.errors;
+
       if (validationErrors && typeof validationErrors === 'object') {
         const errorList = Object.entries(validationErrors)
           .map(([field, msg]) => `${field}: ${msg}`)
@@ -56,12 +64,16 @@ const RegisterPage: React.FC = () => {
     }
   };
 
+  if (showPasskeyPrompt) {
+    return <PasskeyPrompt onComplete={handlePostRegisterNav} />;
+  }
+
   if (step === 'fork') {
     return (
       <div className="flex min-h-screen items-center justify-center p-4 sm:p-8 relative">
         {/* Decorative Grid */}
-        <div className="absolute inset-0 pointer-events-none opacity-20">
-            <div className="h-full w-full" style={{ backgroundImage: 'linear-gradient(#D4AF37 1px, transparent 1px), linear-gradient(90deg, #D4AF37 1px, transparent 1px)', backgroundSize: '60px 60px' }}></div>
+        <div className="absolute inset-0 pointer-events-none opacity-30">
+            <div className="h-full w-full" style={{ backgroundImage: 'radial-gradient(circle, rgba(45,122,58,0.15) 1px, transparent 1px)', backgroundSize: '28px 28px' }}></div>
         </div>
 
         <div className="max-w-3xl w-full relative z-10 flex flex-col items-center">
@@ -74,7 +86,7 @@ const RegisterPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl mb-12">
-            <button 
+            <button
               onClick={() => setStep('student')}
               className="group text-left p-8 bg-card border border-border hover:border-secondary transition-all duration-500 hover:shadow-xl hover:-translate-y-1 relative overflow-hidden"
             >
@@ -96,7 +108,7 @@ const RegisterPage: React.FC = () => {
               </div>
             </button>
 
-            <button 
+            <button
               onClick={() => setStep('non-student')}
               className="group text-left p-8 bg-card border border-border hover:border-primary transition-all duration-500 hover:shadow-xl hover:-translate-y-1 relative overflow-hidden"
             >
@@ -117,7 +129,7 @@ const RegisterPage: React.FC = () => {
               </div>
             </button>
           </div>
-          
+
           <button onClick={logout} className="text-xs text-muted-foreground hover:text-primary transition-colors underline-offset-4 hover:underline tracking-widest uppercase">
             Cancel & Return to Login
           </button>
@@ -129,7 +141,7 @@ const RegisterPage: React.FC = () => {
   return (
     <div className="flex min-h-screen items-center justify-center p-4 sm:p-8 relative">
       <div className="max-w-xl w-full bg-card border border-border shadow-xl p-10 sm:p-14 relative z-10">
-        
+
         {/* Header */}
         <div className="mb-10 pb-6 border-b border-border">
           <h2 className="text-secondary font-bold tracking-widest uppercase text-xs mb-2">Profile Configuration</h2>
@@ -137,7 +149,7 @@ const RegisterPage: React.FC = () => {
             {step === 'student' ? 'Student Registration' : 'Staff Registration'}
           </h1>
         </div>
-        
+
         {error && (
           <div className="mb-8 p-4 bg-destructive/5 border-l-4 border-destructive text-destructive text-sm font-medium">
             {error}
@@ -147,12 +159,12 @@ const RegisterPage: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="space-y-3">
             <Label htmlFor="fullName" className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Official Full Name</Label>
-            <Input 
-              id="fullName" 
-              name="fullName" 
-              value={formData.fullName} 
-              onChange={handleChange} 
-              required 
+            <Input
+              id="fullName"
+              name="fullName"
+              value={formData.fullName}
+              onChange={handleChange}
+              required
               className="h-12 bg-transparent border-0 border-b-2 border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0 text-lg"
             />
           </div>
@@ -161,25 +173,25 @@ const RegisterPage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-3">
                 <Label htmlFor="studentId" className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">University ID</Label>
-                <Input 
-                  id="studentId" 
-                  name="studentId" 
-                  value={formData.studentId} 
-                  onChange={handleChange} 
-                  required 
-                  placeholder="e.g. IT21001234" 
+                <Input
+                  id="studentId"
+                  name="studentId"
+                  value={formData.studentId}
+                  onChange={handleChange}
+                  required
+                  placeholder="e.g. IT21001234"
                   className="h-12 bg-transparent border-0 border-b-2 border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0 text-lg placeholder:text-muted-foreground/30 placeholder:font-light"
                 />
               </div>
               <div className="space-y-3">
                 <Label htmlFor="department" className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Department</Label>
-                <Input 
-                  id="department" 
-                  name="department" 
-                  value={formData.department} 
-                  onChange={handleChange} 
-                  required 
-                  placeholder="e.g. Computing" 
+                <Input
+                  id="department"
+                  name="department"
+                  value={formData.department}
+                  onChange={handleChange}
+                  required
+                  placeholder="e.g. Computing"
                   className="h-12 bg-transparent border-0 border-b-2 border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0 text-lg placeholder:text-muted-foreground/30 placeholder:font-light"
                 />
               </div>
@@ -188,26 +200,26 @@ const RegisterPage: React.FC = () => {
 
           <div className="space-y-3">
             <Label htmlFor="phone" className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Contact Number (Optional)</Label>
-            <Input 
-              id="phone" 
-              name="phone" 
-              value={formData.phone} 
-              onChange={handleChange} 
+            <Input
+              id="phone"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
               className="h-12 bg-transparent border-0 border-b-2 border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0 text-lg"
             />
           </div>
 
           <div className="flex items-center justify-between pt-8">
-            <button 
-              type="button" 
-              onClick={() => setStep('fork')} 
+            <button
+              type="button"
+              onClick={() => setStep('fork')}
               disabled={isSubmitting}
               className="text-sm text-muted-foreground hover:text-primary transition-colors font-medium flex items-center"
             >
               <span className="mr-2">←</span> Back
             </button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={isSubmitting}
               className="px-8 h-12 bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-bold tracking-wider uppercase"
             >

@@ -36,6 +36,15 @@ spring:
 smartcampus:
   auth:
     initial-admin-email: ${INITIAL_ADMIN_EMAIL:admin@example.com}
+  webauthn:
+    rp-id: ${WEBAUTHN_RP_ID:localhost}
+    rp-name: ${WEBAUTHN_RP_NAME:Smart Campus Hub}
+    rp-origin: ${WEBAUTHN_RP_ORIGIN:http://localhost:5173}
 
 server:
   port: 8080
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME}
+  api-key: ${CLOUDINARY_API_KEY}
+  api-secret: ${CLOUDINARY_API_SECRET}
