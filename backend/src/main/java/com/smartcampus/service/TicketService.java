@@ -85,16 +85,18 @@ public class TicketService {
                                 null);
                 Ticket saved = ticketRepository.save(ticket);
 
-                // Increment parent ticket's reporter count when linking
+                // Recalculate and persist parent reporter count from linked child rows.
+                // This avoids stale counters when older data had incorrect values.
                 if (request.linkedTicketId() != null) {
                         ticketRepository.findById(request.linkedTicketId()).ifPresent(parent -> {
+                                int recalculatedLinkedCount = (int) ticketRepository.countByLinkedTicketId(parent.id());
                                 Ticket updated = new Ticket(
                                                 parent.id(), parent.createdBy(), parent.domainId(), parent.resourceId(),
                                                 parent.location(), parent.category(), parent.description(),
                                                 parent.priority(),
                                                 parent.preferredContact(), parent.status(), parent.rejectionReason(),
                                                 parent.assignedTo(), parent.resolutionNotes(), parent.linkedTicketId(),
-                                                parent.linkedReportersCount() + 1, parent.createdAt(), null);
+                                                recalculatedLinkedCount, parent.createdAt(), null);
                                 ticketRepository.save(updated);
                         });
                 }
@@ -365,13 +367,16 @@ public class TicketService {
                                 .stream().map(this::toAttachmentResponse).toList();
 
                 long commentCount = commentRepository.countByTicketId(t.id());
+                int linkedReportersCount = (int) Math.max(
+                                t.linkedReportersCount(),
+                                ticketRepository.countByLinkedTicketId(t.id()));
 
                 return new TicketResponse(
                                 t.id(), t.createdBy(), createdByName, t.domainId(), t.resourceId(),
                                 t.location(), t.category(), t.description(), t.priority(),
                                 t.preferredContact(), t.status(), t.rejectionReason(),
                                 t.assignedTo(), assignedToName, t.resolutionNotes(),
-                                t.linkedTicketId(), t.linkedReportersCount(),
+                                t.linkedTicketId(), linkedReportersCount,
                                 attachments, commentCount, t.createdAt(), t.updatedAt());
         }
 

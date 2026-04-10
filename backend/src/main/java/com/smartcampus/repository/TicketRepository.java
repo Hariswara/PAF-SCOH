@@ -24,4 +24,6 @@ public interface TicketRepository extends ListCrudRepository<Ticket, UUID> {
 
     /** Used to scope all-tickets view for DOMAIN_ADMIN. */
     List<Ticket> findByDomainIdOrderByCreatedAtDesc(UUID domainId);
+
+    long countByLinkedTicketId(UUID linkedTicketId);
 }
