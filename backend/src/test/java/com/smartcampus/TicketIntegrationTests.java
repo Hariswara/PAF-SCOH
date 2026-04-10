@@ -38,7 +38,7 @@ class TicketIntegrationTests {
         void setup() {
                 activeUser = userRepository.save(new User(
                                 null, "google-int-test", "int-test@example.com", "Integration Tester",
-                                "IT21001", "IT", "0771234567", null,
+                                "IT21001", "IT", "0771234567", null, null, null,
                                 UserRole.STUDENT, UserStatus.ACTIVE, null, null, null, null));
         }
 

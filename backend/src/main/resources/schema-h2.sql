@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS users (
     student_id VARCHAR(50) UNIQUE,
     department VARCHAR(255),
     phone VARCHAR(20),
+    contact_email VARCHAR(255),
+    gender VARCHAR(20),
     profile_picture TEXT,
     role VARCHAR(50), -- STUDENT, DOMAIN_ADMIN, TECHNICIAN, SUPER_ADMIN
     status VARCHAR(50) DEFAULT 'PENDING_PROFILE', -- PENDING_PROFILE, PENDING_ACTIVATION, ACTIVE, SUSPENDED
@@ -108,4 +110,16 @@ CREATE TABLE IF NOT EXISTS ticket_comments (
     edited     BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id              UUID DEFAULT random_uuid() PRIMARY KEY,
+    user_id         UUID NOT NULL,
+    type            VARCHAR(50)  NOT NULL,
+    title           VARCHAR(255) NOT NULL,
+    message         TEXT         NOT NULL,
+    reference_id    VARCHAR(255),
+    reference_type  VARCHAR(50),
+    is_read         BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

@@ -1,6 +1,7 @@
 package com.smartcampus.service;
 
 import com.smartcampus.dto.*;
+import com.smartcampus.event.TicketEvent;
 import com.smartcampus.exception.ResourceNotFoundException;
 import com.smartcampus.exception.TicketAttachmentLimitException;
 import com.smartcampus.exception.UnauthorizedActionException;
@@ -8,7 +9,7 @@ import com.smartcampus.model.*;
 import com.smartcampus.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,6 +34,7 @@ public class TicketService {
         private final CloudinaryService cloudinaryService;
         private final AuthService authService;
         private final DuplicateDetectionService detectionService;
+        private final ApplicationEventPublisher eventPublisher;
 
         public TicketService(TicketRepository ticketRepository,
                         TicketAttachmentRepository attachmentRepository,
@@ -40,7 +42,8 @@ public class TicketService {
                         UserRepository userRepository,
                         CloudinaryService cloudinaryService,
                         AuthService authService,
-                        DuplicateDetectionService detectionService) {
+                        DuplicateDetectionService detectionService,
+                        ApplicationEventPublisher eventPublisher) {
                 this.ticketRepository = ticketRepository;
                 this.attachmentRepository = attachmentRepository;
                 this.commentRepository = commentRepository;
@@ -48,19 +51,18 @@ public class TicketService {
                 this.cloudinaryService = cloudinaryService;
                 this.authService = authService;
                 this.detectionService = detectionService;
+                this.eventPublisher = eventPublisher;
         }
 
         // CREATE TICKET
 
-        public TicketResponse createTicket(CreateTicketRequest request, OAuth2User principal) {
-                User currentUser = resolveUser(principal);
+        public TicketResponse createTicket(CreateTicketRequest request) {
+                User currentUser = resolveUser();
 
-                // Fix #5 — only STUDENT and DOMAIN_ADMIN may create tickets
                 if (currentUser.role() != UserRole.STUDENT && currentUser.role() != UserRole.DOMAIN_ADMIN) {
                         throw new UnauthorizedActionException("Only students and domain admins may create tickets");
                 }
 
-                // Fix #6 — domain admin always uses their own domain; student supplies domainId
                 UUID resolvedDomainId = (currentUser.role() == UserRole.DOMAIN_ADMIN)
                                 ? currentUser.domainId()
                                 : request.domainId();
@@ -85,8 +87,6 @@ public class TicketService {
                                 null);
                 Ticket saved = ticketRepository.save(ticket);
 
-                // Recalculate and persist parent reporter count from linked child rows.
-                // This avoids stale counters when older data had incorrect values.
                 if (request.linkedTicketId() != null) {
                         ticketRepository.findById(request.linkedTicketId()).ifPresent(parent -> {
                                 int recalculatedLinkedCount = (int) ticketRepository.countByLinkedTicketId(parent.id());
@@ -101,21 +101,24 @@ public class TicketService {
                         });
                 }
 
-                // Index into Lucene for duplicate detection
                 try {
                         detectionService.indexTicket(saved);
                 } catch (IOException e) {
                         log.warn("Lucene index update failed for ticket {}: {}", saved.id(), e.getMessage());
                 }
 
+                eventPublisher.publishEvent(new TicketEvent.Created(
+                        saved.id(), currentUser.id(), resolvedDomainId,
+                        saved.location(), saved.category().name(), saved.priority().name()));
+
                 return buildResponse(saved);
         }
 
         // UPLOAD ATTACHMENT
 
-        public AttachmentResponse addAttachment(UUID ticketId, MultipartFile file, OAuth2User principal)
+        public AttachmentResponse addAttachment(UUID ticketId, MultipartFile file)
                         throws IOException {
-                User currentUser = resolveUser(principal);
+                User currentUser = resolveUser();
                 Ticket ticket = findTicket(ticketId);
 
                 if (!ticket.createdBy().equals(currentUser.id()) && !isAdmin(currentUser)) {
@@ -156,12 +159,9 @@ public class TicketService {
                                 .stream().map(this::buildResponse).toList();
         }
 
-        /**
-         * Fix #6 — DOMAIN_ADMIN sees only their domain's tickets; SUPER_ADMIN sees all.
-         */
         @Transactional(readOnly = true)
-        public List<TicketResponse> getAllTickets(OAuth2User principal) {
-                User currentUser = resolveUser(principal);
+        public List<TicketResponse> getAllTickets() {
+                User currentUser = resolveUser();
                 if (currentUser.role() == UserRole.DOMAIN_ADMIN && currentUser.domainId() != null) {
                         return ticketRepository.findByDomainIdOrderByCreatedAtDesc(currentUser.domainId())
                                         .stream().filter(t -> t.linkedTicketId() == null)
@@ -173,16 +173,16 @@ public class TicketService {
         }
 
         @Transactional(readOnly = true)
-        public List<TicketResponse> getMyTickets(OAuth2User principal) {
-                User currentUser = resolveUser(principal);
+        public List<TicketResponse> getMyTickets() {
+                User currentUser = resolveUser();
                 return ticketRepository.findByCreatedByOrderByCreatedAtDesc(currentUser.id())
                                 .stream().filter(t -> t.linkedTicketId() == null)
                                 .map(this::buildResponse).toList();
         }
 
         @Transactional(readOnly = true)
-        public List<TicketResponse> getAssignedTickets(OAuth2User principal) {
-                User currentUser = resolveUser(principal);
+        public List<TicketResponse> getAssignedTickets() {
+                User currentUser = resolveUser();
                 return ticketRepository.findByAssignedToOrderByCreatedAtDesc(currentUser.id())
                                 .stream().filter(t -> t.linkedTicketId() == null)
                                 .map(this::buildResponse).toList();
@@ -195,8 +195,8 @@ public class TicketService {
                                 .stream().map(this::toAttachmentResponse).toList();
         }
 
-        public void deleteAttachment(UUID ticketId, UUID attachmentId, OAuth2User principal) throws IOException {
-                User currentUser = resolveUser(principal);
+        public void deleteAttachment(UUID ticketId, UUID attachmentId) throws IOException {
+                User currentUser = resolveUser();
                 TicketAttachment attachment = attachmentRepository.findById(attachmentId)
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Attachment not found: " + attachmentId));
@@ -214,8 +214,8 @@ public class TicketService {
 
         // WORKFLOW
 
-        public TicketResponse updateStatus(UUID ticketId, UpdateTicketStatusRequest request, OAuth2User principal) {
-                User currentUser = resolveUser(principal);
+        public TicketResponse updateStatus(UUID ticketId, UpdateTicketStatusRequest request) {
+                User currentUser = resolveUser();
                 Ticket ticket = findTicket(ticketId);
 
                 validateStatusTransition(ticket.status(), request.status(), currentUser, ticket);
@@ -236,7 +236,6 @@ public class TicketService {
                                 ticket.linkedReportersCount(), ticket.createdAt(), null);
                 Ticket saved = ticketRepository.save(updated);
 
-                // Remove from Lucene when ticket is no longer open
                 if (request.status() == TicketStatus.RESOLVED
                                 || request.status() == TicketStatus.CLOSED
                                 || request.status() == TicketStatus.REJECTED) {
@@ -249,11 +248,15 @@ public class TicketService {
 
                 syncLinkedChildrenStatus(saved);
 
+                eventPublisher.publishEvent(new TicketEvent.StatusChanged(
+                        saved.id(), ticket.createdBy(),
+                        ticket.status().name(), saved.status().name(), saved.location()));
+
                 return buildResponse(saved);
         }
 
-        public TicketResponse assignTechnician(UUID ticketId, UUID technicianId, OAuth2User principal) {
-                User currentUser = resolveUser(principal);
+        public TicketResponse assignTechnician(UUID ticketId, UUID technicianId) {
+                User currentUser = resolveUser();
                 if (!isDomainAdminOrSuper(currentUser)) {
                         throw new UnauthorizedActionException(
                                         "Only Domain Admin or Super Admin can assign technicians");
@@ -276,11 +279,15 @@ public class TicketService {
                                 ticket.linkedReportersCount(), ticket.createdAt(), null);
                 Ticket saved = ticketRepository.save(updated);
                 syncLinkedChildrenAssignment(saved);
+
+                eventPublisher.publishEvent(new TicketEvent.Assigned(
+                        saved.id(), technicianId, currentUser.id(), saved.location()));
+
                 return buildResponse(saved);
         }
 
-        public TicketResponse addResolutionNotes(UUID ticketId, ResolutionNotesRequest request, OAuth2User principal) {
-                User currentUser = resolveUser(principal);
+        public TicketResponse addResolutionNotes(UUID ticketId, ResolutionNotesRequest request) {
+                User currentUser = resolveUser();
                 Ticket ticket = findTicket(ticketId);
 
                 boolean isTechnicianOnTicket = currentUser.role() == UserRole.TECHNICIAN
@@ -304,11 +311,6 @@ public class TicketService {
 
         // HELPERS
 
-        /**
-         * Fix #1 — students have no status transitions (enforced in frontend too).
-         * Fix #3 — REJECTED: SUPER_ADMIN can always reject; DOMAIN_ADMIN only for their
-         * domain.
-         */
         private void validateStatusTransition(TicketStatus current, TicketStatus next,
                         User actor, Ticket ticket) {
                 boolean isSuperAdmin = actor.role() == UserRole.SUPER_ADMIN;
@@ -316,7 +318,6 @@ public class TicketService {
                 boolean isAdmin = isSuperAdmin || isDomainAdmin;
                 boolean isTechnician = actor.role() == UserRole.TECHNICIAN;
 
-                // Students have no allowed transitions at all
                 if (!isAdmin && !isTechnician) {
                         throw new UnauthorizedActionException("You do not have permission to change ticket status");
                 }
@@ -343,7 +344,6 @@ public class TicketService {
                         case REJECTED -> {
                                 if (!isAdmin)
                                         throw new UnauthorizedActionException("Only admin can reject tickets");
-                                // Fix #3 — domain admin may only reject tickets in their own domain
                                 if (isDomainAdmin) {
                                         if (ticket.domainId() == null || !ticket.domainId().equals(actor.domainId())) {
                                                 throw new UnauthorizedActionException(
@@ -360,10 +360,12 @@ public class TicketService {
                                 .orElseThrow(() -> new ResourceNotFoundException("Ticket not found: " + id));
         }
 
-        private User resolveUser(OAuth2User principal) {
-                String email = principal.getAttribute("email");
-                return userRepository.findByEmail(email)
-                                .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found"));
+        private User resolveUser() {
+                User user = authService.getCurrentUser();
+                if (user == null) {
+                        throw new ResourceNotFoundException("Authenticated user not found");
+                }
+                return user;
         }
 
         private boolean isAdmin(User user) {
