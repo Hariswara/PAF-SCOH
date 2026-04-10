@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/resources")
@@ -33,5 +34,12 @@ public class ResourceController {
         return ResponseEntity.ok(
             resourceService.searchResources(name, location, capacity, type)
         );
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ResourceResponseDTO> updateResource(
+            @PathVariable UUID id,
+            @Valid @RequestBody ResourceDTO dto) {
+        return ResponseEntity.ok(resourceService.updateResource(id, dto));
     }
 }

@@ -66,4 +66,21 @@ public class ResourceService {
                 .updatedAt(resource.getUpdatedAt())
                 .build();
     }
+
+    public ResourceResponseDTO updateResource(UUID id, ResourceDTO dto) {
+    Resource resource = resourceRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "Resource not found with id: " + id));
+
+    resource.setName(dto.getName());
+    resource.setType(dto.getType());
+    resource.setCapacity(dto.getCapacity());
+    resource.setLocation(dto.getLocation());
+    resource.setAvailabilityWindows(dto.getAvailabilityWindows());
+    resource.setStatus(dto.getStatus());
+    resource.setDescription(dto.getDescription());
+    resource.setDomainId(dto.getDomainId());
+
+    return mapToResponseDTO(resourceRepository.save(resource));
+}
 }
