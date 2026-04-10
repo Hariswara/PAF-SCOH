@@ -34,7 +34,7 @@ class PasskeyRepositoryTests {
     private User savedUser(String email) {
         return userRepository.save(new User(
                 null, null, email, "Test User",
-                null, null, null, null,
+                null, null, null, null, null, null,
                 UserRole.STUDENT, UserStatus.ACTIVE, null, null, null, null
         ));
     }

@@ -50,6 +50,8 @@ export interface TicketResponse {
 }
 
 export interface CreateTicketRequest {
+    domainId?: string;
+    /** Placeholder until Module A (Facilities) is integrated. */
     resourceId?: string;
     location: string;
     category: TicketCategory;
@@ -76,4 +78,10 @@ export interface CommentResponse {
     edited: boolean;
     createdAt: string;
     updatedAt: string;
+}
+
+export interface TechnicianOption {
+    id: string;
+    fullName: string;
+    email: string;
 }

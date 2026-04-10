@@ -5,11 +5,13 @@ import type {
     DuplicateSuggestion,
     CommentResponse,
     TicketStatus,
+    TechnicianOption,
 } from '@/types/ticket';
 
-// ── Tickets ──────────────────────────────────────────────────────────
-
 export const ticketApi = {
+
+    // Tickets
+
     getAll: () =>
         api.get<TicketResponse[]>('/tickets').then((r) => r.data),
 
@@ -21,6 +23,9 @@ export const ticketApi = {
 
     getById: (id: string) =>
         api.get<TicketResponse>(`/tickets/${id}`).then((r) => r.data),
+
+    getLinkedReports: (id: string) =>
+        api.get<TicketResponse[]>(`/tickets/${id}/linked-reports`).then((r) => r.data),
 
     create: (data: CreateTicketRequest) =>
         api.post<TicketResponse>('/tickets', data).then((r) => r.data),
@@ -40,7 +45,11 @@ export const ticketApi = {
             .patch<TicketResponse>(`/tickets/${id}/resolution`, { resolutionNotes })
             .then((r) => r.data),
 
-    // ── Attachments ──────────────────────────────────────────────────
+    // Technicians 
+    getTechnicians: () =>
+        api.get<TechnicianOption[]>('/users/technicians').then((r) => r.data),
+
+    //Attachments
 
     uploadAttachment: (ticketId: string, file: File) => {
         const form = new FormData();
@@ -49,7 +58,7 @@ export const ticketApi = {
             .post<{ id: string; publicUrl: string; filename: string }>(
                 `/tickets/${ticketId}/attachments`,
                 form,
-                { headers: { 'Content-Type': 'multipart/form-data' } }
+                { headers: { 'Content-Type': 'multipart/form-data' } },
             )
             .then((r) => r.data);
     },
@@ -57,7 +66,7 @@ export const ticketApi = {
     deleteAttachment: (ticketId: string, attachmentId: string) =>
         api.delete(`/tickets/${ticketId}/attachments/${attachmentId}`),
 
-    // ── Comments ─────────────────────────────────────────────────────
+    //Comments
 
     getComments: (ticketId: string) =>
         api.get<CommentResponse[]>(`/tickets/${ticketId}/comments`).then((r) => r.data),
@@ -75,12 +84,18 @@ export const ticketApi = {
     deleteComment: (ticketId: string, commentId: string) =>
         api.delete(`/tickets/${ticketId}/comments/${commentId}`),
 
-    // ── Duplicate detection ───────────────────────────────────────────
+    // Duplicate detection 
 
-    checkDuplicates: (description: string, excludeTicketId?: string) =>
+    checkDuplicates: (
+        description: string,
+        location?: string,
+        category?: string,
+        domainId?: string,
+        excludeTicketId?: string,
+    ) =>
         api
             .get<DuplicateSuggestion[]>('/tickets/duplicates/check', {
-                params: { description, excludeTicketId },
+                params: { description, location, category, domainId, excludeTicketId },
             })
             .then((r) => r.data),
 };

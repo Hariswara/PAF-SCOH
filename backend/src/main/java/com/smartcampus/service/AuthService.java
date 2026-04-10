@@ -2,11 +2,16 @@ package com.smartcampus.service;
 
 import com.smartcampus.dto.NonStudentRegistrationRequest;
 import com.smartcampus.dto.StudentRegistrationRequest;
+import com.smartcampus.dto.UpdateProfileRequest;
+import com.smartcampus.event.UserEvent;
+import com.smartcampus.model.Domain;
 import com.smartcampus.model.User;
 import com.smartcampus.model.UserRole;
 import com.smartcampus.model.UserStatus;
+import com.smartcampus.repository.DomainRepository;
 import com.smartcampus.repository.UserRepository;
 import com.smartcampus.security.PasskeyAuthenticatedPrincipal;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -14,14 +19,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Service
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final DomainRepository domainRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public AuthService(UserRepository userRepository) {
+    public AuthService(UserRepository userRepository, DomainRepository domainRepository,
+                       ApplicationEventPublisher eventPublisher) {
         this.userRepository = userRepository;
+        this.domainRepository = domainRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     public User getCurrentUser() {
@@ -52,6 +63,8 @@ public class AuthService {
             request.studentId(),
             request.department(),
             request.phone(),
+            request.contactEmail(),
+            request.gender(),
             user.profilePicture(),
             UserRole.STUDENT,
             UserStatus.ACTIVE,
@@ -61,7 +74,12 @@ public class AuthService {
             null
         );
 
-        return userRepository.save(updated);
+        User saved = userRepository.save(updated);
+
+        eventPublisher.publishEvent(new UserEvent.Registered(
+            saved.id(), saved.fullName(), saved.email(), "Student"));
+
+        return saved;
     }
 
     @Transactional
@@ -76,10 +94,13 @@ public class AuthService {
             user.googleId(),
             user.email(),
             request.fullName(),
-            null, null,
+            null,
+            request.department(),
             request.phone(),
+            request.contactEmail(),
+            request.gender(),
             user.profilePicture(),
-            null, // Role remains null until Super Admin assigns it
+            null,
             UserStatus.PENDING_ACTIVATION,
             null,
             Instant.now(),
@@ -87,6 +108,47 @@ public class AuthService {
             null
         );
 
+        User saved = userRepository.save(updated);
+
+        eventPublisher.publishEvent(new UserEvent.Registered(
+            saved.id(), saved.fullName(), saved.email(), "Non-Student"));
+
+        return saved;
+    }
+
+    @Transactional
+    public User updateProfile(UpdateProfileRequest request) {
+        User user = getCurrentUser();
+        if (user == null) {
+            throw new IllegalStateException("Not authenticated");
+        }
+
+        User updated = new User(
+            user.id(),
+            user.googleId(),
+            user.email(),
+            request.fullName(),
+            user.studentId(),
+            request.department() != null ? request.department() : user.department(),
+            request.phone(),
+            request.contactEmail(),
+            request.gender(),
+            user.profilePicture(),
+            user.role(),
+            user.status(),
+            user.domainId(),
+            user.lastLoginAt(),
+            user.createdAt(),
+            null
+        );
+
         return userRepository.save(updated);
+    }
+
+    public String getDomainName(UUID domainId) {
+        if (domainId == null) return null;
+        return domainRepository.findById(domainId)
+                .map(Domain::name)
+                .orElse(null);
     }
 }

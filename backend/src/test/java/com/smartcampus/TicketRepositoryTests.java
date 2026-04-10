@@ -29,7 +29,7 @@ class TicketRepositoryTests {
     void setup() {
         testUser = userRepository.save(new User(
                 null, "google-ticket-test", "ticket-test@example.com", "Ticket Tester",
-                null, null, null, null,
+                null, null, null, null, null, null,
                 UserRole.STUDENT, UserStatus.ACTIVE, null, null, null, null));
     }
 
