@@ -26,10 +26,10 @@ public class AdminProvisioner {
                 log.info("Provisioning initial SUPER_ADMIN user: {}", initialAdminEmail);
                 User admin = new User(
                     null,
-                    "INITIAL_ADMIN_" + initialAdminEmail, // Unique placeholder per email
+                    "INITIAL_ADMIN_" + initialAdminEmail,
                     initialAdminEmail,
                     "System Administrator",
-                    null, null, null, null,
+                    null, null, null, null, null, null,
                     UserRole.SUPER_ADMIN,
                     UserStatus.ACTIVE,
                     null, null, null, null

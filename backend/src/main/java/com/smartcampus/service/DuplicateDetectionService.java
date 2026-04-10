@@ -19,13 +19,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Uses Apache Lucene to perform in-memory similarity search over open tickets.
+ * Apache Lucene in-memory duplicate detection.
+ * 
  */
 @Service
 public class DuplicateDetectionService {
 
     private static final int MAX_RESULTS = 5;
     private static final List<TicketStatus> OPEN_STATUSES = List.of(TicketStatus.OPEN, TicketStatus.IN_PROGRESS);
+    private static final float MIN_RELEVANCE_SCORE = 0.9f;
+    private static final int MIN_TOKEN_OVERLAP = 2;
 
     private final TicketRepository ticketRepository;
 
@@ -43,22 +46,17 @@ public class DuplicateDetectionService {
         rebuildIndex();
     }
 
-    // Rebuild the full Lucene index from the DB (call after restart or bulk
-    // changes).
-
     @Transactional(readOnly = true)
     public synchronized void rebuildIndex() throws IOException {
         IndexWriterConfig config = new IndexWriterConfig(analyzer);
         config.setOpenMode(IndexWriterConfig.OpenMode.CREATE);
         try (IndexWriter writer = new IndexWriter(luceneDir, config)) {
-            List<Ticket> openTickets = ticketRepository.findByStatusIn(OPEN_STATUSES);
-            for (Ticket t : openTickets) {
+            for (Ticket t : ticketRepository.findByStatusIn(OPEN_STATUSES)) {
                 writer.addDocument(toDocument(t));
             }
         }
     }
 
-    // Index a single newly created ticket.
     public synchronized void indexTicket(Ticket ticket) throws IOException {
         if (!OPEN_STATUSES.contains(ticket.status()))
             return;
@@ -69,7 +67,6 @@ public class DuplicateDetectionService {
         }
     }
 
-    // Remove a ticket from the index (when closed/resolved).
     public synchronized void removeFromIndex(String ticketId) throws IOException {
         IndexWriterConfig config = new IndexWriterConfig(analyzer);
         config.setOpenMode(IndexWriterConfig.OpenMode.APPEND);
@@ -78,47 +75,129 @@ public class DuplicateDetectionService {
         }
     }
 
-    // Search for open tickets similar to the given description.
+    /**
+     * Fix #8 — search across description + location + domainId.
+     */
+    public List<DuplicateSuggestion> findSimilar(
+            String description, String location, String category, String domainId, String excludeId) throws Exception {
 
-    public List<DuplicateSuggestion> findSimilar(String description, String excludeId) throws Exception {
         List<DuplicateSuggestion> results = new ArrayList<>();
-        if (description == null || description.isBlank())
+
+        if ((description == null || description.isBlank())
+                && (location == null || location.isBlank())) {
             return results;
+        }
 
         try (DirectoryReader reader = DirectoryReader.open(luceneDir)) {
             IndexSearcher searcher = new IndexSearcher(reader);
-            QueryParser parser = new QueryParser("description", analyzer);
-            parser.setDefaultOperator(QueryParser.Operator.OR);
+            BooleanQuery.Builder qb = new BooleanQuery.Builder();
 
-            // Escape special Lucene chars from user input
-            String escaped = QueryParser.escape(description.trim());
-            Query query = parser.parse(escaped);
+            // Description — primary, boosted ×2
+            if (description != null && !description.isBlank()) {
+                QueryParser dp = new QueryParser("description", analyzer);
+                dp.setDefaultOperator(QueryParser.Operator.OR);
+                try {
+                    qb.add(new BoostQuery(dp.parse(QueryParser.escape(description.trim())), 2.0f),
+                            BooleanClause.Occur.SHOULD);
+                } catch (Exception ignored) {
+                    /* malformed query — skip */ }
+            }
+
+            // Location — secondary, boosted ×1.5
+            if (location != null && !location.isBlank()) {
+                QueryParser lp = new QueryParser("location", analyzer);
+                lp.setDefaultOperator(QueryParser.Operator.OR);
+                try {
+                    qb.add(new BoostQuery(lp.parse(QueryParser.escape(location.trim())), 1.5f),
+                            BooleanClause.Occur.SHOULD);
+                } catch (Exception ignored) {
+                    /* malformed query — skip */ }
+            }
+
+            // Domain — soft match (SHOULD, not MUST so cross-domain still returns results)
+            if (domainId != null && !domainId.isBlank()) {
+                qb.add(new TermQuery(new Term("domainId", domainId.trim())),
+                        BooleanClause.Occur.SHOULD);
+            }
+
+            // Category — hard requirement when provided to avoid noisy cross-category hits.
+            if (category != null && !category.isBlank()) {
+                qb.add(new TermQuery(new Term("category", category.trim())),
+                        BooleanClause.Occur.MUST);
+            }
+
+            // Without this, pure SHOULD queries may match every indexed document.
+            // We require at least one similarity signal (description/location/domain).
+            qb.setMinimumNumberShouldMatch(1);
+
+            BooleanQuery query = qb.build();
+            if (query.clauses().isEmpty())
+                return results;
 
             TopDocs hits = searcher.search(query, MAX_RESULTS + 1);
+            List<String> inputTokens = tokenize(description);
             for (ScoreDoc sd : hits.scoreDocs) {
                 Document doc = searcher.storedFields().document(sd.doc);
-                String id = doc.get("id");
-                if (id.equals(excludeId))
+                String hitId = doc.get("id");
+                if (hitId.equals(excludeId))
                     continue;
+
+                String rawDesc = doc.get("description");
+                int overlapCount = sharedTokenCount(inputTokens, tokenize(rawDesc));
+                if (sd.score < MIN_RELEVANCE_SCORE || overlapCount < MIN_TOKEN_OVERLAP)
+                    continue;
+
+                String snippet = rawDesc != null
+                        ? rawDesc.substring(0, Math.min(80, rawDesc.length()))
+                        : "";
                 results.add(new DuplicateSuggestion(
-                        java.util.UUID.fromString(id),
+                        java.util.UUID.fromString(hitId),
                         doc.get("location"),
-                        doc.get("description"),
+                        snippet,
                         doc.get("status"),
                         sd.score));
-                if (results.size() == MAX_RESULTS)
+                if (results.size() >= MAX_RESULTS)
                     break;
             }
         }
         return results;
     }
 
+    /** Backward-compatible overload (description-only). */
+    public List<DuplicateSuggestion> findSimilar(String description, String excludeId) throws Exception {
+        return findSimilar(description, null, null, null, excludeId);
+    }
+
     private Document toDocument(Ticket t) {
         Document doc = new Document();
         doc.add(new StringField("id", t.id().toString(), Field.Store.YES));
         doc.add(new TextField("description", t.description(), Field.Store.YES));
-        doc.add(new StoredField("location", t.location()));
+        doc.add(new TextField("location", t.location(), Field.Store.YES));
+        doc.add(new StringField("category", t.category().name(), Field.Store.YES));
         doc.add(new StoredField("status", t.status().name()));
+        if (t.domainId() != null) {
+            doc.add(new StringField("domainId", t.domainId().toString(), Field.Store.YES));
+        }
         return doc;
+    }
+
+    private List<String> tokenize(String text) {
+        if (text == null || text.isBlank())
+            return List.of();
+        return java.util.Arrays.stream(text.toLowerCase().split("[^a-z0-9]+"))
+                .filter(token -> token.length() >= 3)
+                .toList();
+    }
+
+    private int sharedTokenCount(List<String> left, List<String> right) {
+        if (left.isEmpty() || right.isEmpty())
+            return 0;
+        java.util.Set<String> rightSet = new java.util.HashSet<>(right);
+        int count = 0;
+        for (String token : left) {
+            if (rightSet.contains(token))
+                count++;
+        }
+        return count;
     }
 }
