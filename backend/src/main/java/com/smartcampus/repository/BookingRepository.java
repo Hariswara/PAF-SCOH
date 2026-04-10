@@ -19,4 +19,4 @@ public interface BookingRepository extends ListCrudRepository<Booking, Long> {
             LocalTime startTime,
             Collection<BookingStatus> statuses
     );
-}
+}//
