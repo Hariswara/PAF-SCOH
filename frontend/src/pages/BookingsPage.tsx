@@ -54,13 +54,17 @@ import { Textarea } from '../components/ui/textarea';
 import {
   approveBooking,
   cancelBooking,
+  createBooking,
   getBookings,
   getMyBookings,
   rejectBooking,
   type BookingResponse,
 } from '../services/booking.service';
+import { getResources } from '../services/resource.service';
+import type { ResourceResponse } from '../types/resource';
 
 type FieldErrors = {
+  resourceId?: string;
   bookingDate?: string;
   startTime?: string;
   endTime?: string;
@@ -80,6 +84,11 @@ const BookingsPage: React.FC = () => {
 
   const [showForm, setShowForm] = useState(false);
 
+  const [resourceId, setResourceId] = useState('');
+  const [resources, setResources] = useState<ResourceResponse[]>([]);
+  const [loadingResources, setLoadingResources] = useState(false);
+  const [submittingBooking, setSubmittingBooking] = useState(false);
+
   const [bookingDate, setBookingDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
@@ -88,7 +97,6 @@ const BookingsPage: React.FC = () => {
 
   const [errors, setErrors] = useState<FieldErrors>({});
   const [errorMessage, setErrorMessage] = useState('');
-  const [showInfoDialog, setShowInfoDialog] = useState(false);
 
   const [bookings, setBookings] = useState<BookingResponse[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(true);
@@ -111,11 +119,17 @@ const BookingsPage: React.FC = () => {
 
   const today = new Date().toISOString().split('T')[0];
 
+  const selectedResource = useMemo(
+    () => resources.find((resource) => resource.id === resourceId),
+    [resources, resourceId]
+  );
+
   const validateForm = () => {
     const newErrors: FieldErrors = {};
 
-  const BOOKING_START_TIME = '08:00';
-  const BOOKING_END_TIME = '18:00';
+    if (!resourceId) {
+      newErrors.resourceId = 'Resource is required.';
+    }
 
     if (!bookingDate) {
       newErrors.bookingDate = 'Booking date is required.';
@@ -143,8 +157,14 @@ const BookingsPage: React.FC = () => {
       newErrors.expectedAttendees = 'Expected attendees is required.';
     } else {
       const count = Number(expectedAttendees);
+
       if (Number.isNaN(count) || count < 1) {
         newErrors.expectedAttendees = 'Expected attendees must be at least 1.';
+      } else if (
+        selectedResource?.capacity != null &&
+        count > selectedResource.capacity
+      ) {
+        newErrors.expectedAttendees = `Expected attendees cannot exceed capacity of ${selectedResource.capacity}.`;
       }
     }
 
@@ -153,6 +173,7 @@ const BookingsPage: React.FC = () => {
   };
 
   const resetForm = () => {
+    setResourceId('');
     setBookingDate('');
     setStartTime('');
     setEndTime('');
@@ -162,9 +183,10 @@ const BookingsPage: React.FC = () => {
     setErrorMessage('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+    setSuccessMessage('');
 
     const isValid = validateForm();
 
@@ -173,7 +195,50 @@ const BookingsPage: React.FC = () => {
       return;
     }
 
-    setShowInfoDialog(true);
+    setSubmittingBooking(true);
+
+    try {
+      await createBooking({
+        resourceId,
+        bookingDate,
+        startTime,
+        endTime,
+        purpose: purpose.trim(),
+        expectedAttendees: Number(expectedAttendees),
+      });
+
+      setShowForm(false);
+      resetForm();
+      setSuccessMessage('Booking request submitted successfully.');
+
+      await loadBookings(
+        {
+          status: statusFilter !== 'ALL' ? statusFilter : undefined,
+          date: dateFilter || undefined,
+        },
+        true
+      );
+    } catch (error: any) {
+      setErrorMessage(
+        error?.response?.data?.message || 'Failed to create booking.'
+      );
+    } finally {
+      setSubmittingBooking(false);
+    }
+  };
+
+  const loadResources = async () => {
+    setLoadingResources(true);
+
+    try {
+      const data = await getResources();
+      const activeResources = data.filter((resource) => resource.status === 'ACTIVE');
+      setResources(activeResources);
+    } catch (error) {
+      setResources([]);
+    } finally {
+      setLoadingResources(false);
+    }
   };
 
   const loadBookings = async (
@@ -213,6 +278,14 @@ const BookingsPage: React.FC = () => {
       date: dateFilter || undefined,
     });
   }, [statusFilter, dateFilter, isAdmin, isLoading]);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    if (!isAdmin) {
+      void loadResources();
+    }
+  }, [isLoading, isAdmin]);
 
   const handleRefresh = async () => {
     setSuccessMessage('');
@@ -839,8 +912,7 @@ const BookingsPage: React.FC = () => {
                         fontFamily: 'Albert Sans, sans-serif',
                       }}
                     >
-                      The booking UI is ready. Resource dropdown integration will be
-                      enabled once the Resource module is available.
+                      Complete the form below to submit your booking request.
                     </DialogDescription>
                   </div>
 
@@ -862,12 +934,33 @@ const BookingsPage: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="space-y-2">
                       <Label htmlFor="resourceId">Resource</Label>
-                      <Input
-                        id="resourceId"
-                        value="Resource integration pending"
-                        disabled
-                        className="bg-[#F6F8F4] text-[#6B7B6B]"
-                      />
+                      <Select value={resourceId} onValueChange={setResourceId}>
+                        <SelectTrigger className="w-full bg-white">
+                          <SelectValue
+                            placeholder={
+                              loadingResources ? 'Loading resources...' : 'Select a resource'
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {resources.length === 0 ? (
+                            <SelectItem value="NO_RESOURCES" disabled>
+                              No active resources available
+                            </SelectItem>
+                          ) : (
+                            resources.map((resource) => (
+                              <SelectItem key={resource.id} value={resource.id}>
+                                {resource.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+
+                      {errors.resourceId && (
+                        <p className="text-sm text-red-600">{errors.resourceId}</p>
+                      )}
+
                       <p
                         className="text-[12px]"
                         style={{
@@ -875,8 +968,7 @@ const BookingsPage: React.FC = () => {
                           fontFamily: 'Albert Sans, sans-serif',
                         }}
                       >
-                        Resource names will load here after the Resource API is
-                        merged.
+                        Select an active resource for this booking request.
                       </p>
                     </div>
 
@@ -989,8 +1081,8 @@ const BookingsPage: React.FC = () => {
                             fontFamily: 'Albert Sans, sans-serif',
                           }}
                         >
-                          Booking submission and resource selection will be connected
-                          once the Resource module API is available in your branch.
+                          Booking requests are validated before submission. Select a resource,
+                          choose a valid time range, and ensure attendee count fits the capacity.
                         </p>
                       </div>
                     </div>
@@ -1031,9 +1123,10 @@ const BookingsPage: React.FC = () => {
 
                     <Button
                       type="submit"
+                      disabled={submittingBooking}
                       className="bg-[#2D7A3A] hover:bg-[#256632] text-white"
                     >
-                      Submit Booking
+                      {submittingBooking ? 'Submitting...' : 'Submit Booking'}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -1053,8 +1146,7 @@ const BookingsPage: React.FC = () => {
                     fontFamily: 'Albert Sans, sans-serif',
                   }}
                 >
-                  Resource details will appear here once resource integration is
-                  completed.
+                  Review the selected resource details before submitting your booking request.
                 </p>
 
                 <div className="space-y-4">
@@ -1083,7 +1175,7 @@ const BookingsPage: React.FC = () => {
                           className="font-serif text-[22px]"
                           style={{ color: '#1A2E1A' }}
                         >
-                          Pending Integration
+                          {selectedResource?.name || 'No resource selected'}
                         </p>
                       </div>
                     </div>
@@ -1104,7 +1196,9 @@ const BookingsPage: React.FC = () => {
                             Location
                           </span>
                         </div>
-                        <p style={{ color: '#1A2E1A' }}>—</p>
+                        <p style={{ color: '#1A2E1A' }}>
+                          {selectedResource?.location || '—'}
+                        </p>
                       </div>
 
                       <div
@@ -1122,7 +1216,9 @@ const BookingsPage: React.FC = () => {
                             Capacity
                           </span>
                         </div>
-                        <p style={{ color: '#1A2E1A' }}>—</p>
+                        <p style={{ color: '#1A2E1A' }}>
+                          {selectedResource?.capacity ?? '—'}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1179,24 +1275,6 @@ const BookingsPage: React.FC = () => {
                 </div>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {!isAdmin && (
-        <Dialog open={showInfoDialog} onOpenChange={setShowInfoDialog}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Form Validated</DialogTitle>
-              <DialogDescription>
-                Your booking form fields are valid. Resource dropdown and backend
-                submission will be enabled once resource integration is completed.
-              </DialogDescription>
-            </DialogHeader>
-
-            <DialogFooter>
-              <Button onClick={() => setShowInfoDialog(false)}>Done</Button>
-            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
