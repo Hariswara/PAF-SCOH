@@ -71,3 +71,18 @@ export async function updateResource(
   }
   return response.json();
 }
+
+export async function deleteResource(id: string): Promise<void> {
+  const response = await fetch(`${BASE_URL}/resources/${id}`, {
+    method: 'DELETE',
+    headers: {
+      'X-XSRF-TOKEN': getCsrfToken(),
+    },
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw error;
+  }
+}

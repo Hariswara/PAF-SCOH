@@ -94,6 +94,18 @@ export default function ResourcesPage() {
     });
   };
 
+  const handleResourceDeleted = (id: string) => {
+    setTableFilters(prev => {
+      const newFilters = { ...prev };
+      TABS.forEach(tab => {
+       if (newFilters[tab.type]) {
+        newFilters[tab.type] = newFilters[tab.type].filter(r => r.id !== id);
+       }
+      });
+      return newFilters;
+    });
+  };
+
   const scrollToTable = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -166,6 +178,7 @@ export default function ResourcesPage() {
                   title={tab.label}
                   resources={tableFilters[tab.type] ?? []}
                   onResourceUpdated={handleResourceUpdated}
+                  onResourceDeleted={handleResourceDeleted}
                 />
               </div>
             ))}

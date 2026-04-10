@@ -83,4 +83,11 @@ public class ResourceService {
 
     return mapToResponseDTO(resourceRepository.save(resource));
 }
+
+public void deleteResource(UUID id) {
+    Resource resource = resourceRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "Resource not found with id: " + id));
+    resourceRepository.delete(resource);
+}
 }

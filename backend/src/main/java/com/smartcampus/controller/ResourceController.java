@@ -42,4 +42,10 @@ public class ResourceController {
             @Valid @RequestBody ResourceDTO dto) {
         return ResponseEntity.ok(resourceService.updateResource(id, dto));
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteResource(@PathVariable UUID id) {
+        resourceService.deleteResource(id);
+        return ResponseEntity.noContent().build();
+}
 }

@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import type { ResourceResponse } from '../../types/resource';
 import EditResourceModal from './EditResourceModal';
+import { deleteResource } from '../../api/resourceApi';
 
 interface ResourceTableProps {
   resources: ResourceResponse[];
   title: string;
   tableId: string;
   onResourceUpdated: (updated: ResourceResponse) => void;
+  onResourceDeleted: (id: string) => void;        // ← ADD THIS
 }
 
 export default function ResourceTable({
@@ -14,9 +16,25 @@ export default function ResourceTable({
   title,
   tableId,
   onResourceUpdated,
+  onResourceDeleted,
 }: ResourceTableProps) {
   const [editingResource, setEditingResource] =
     useState<ResourceResponse | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await deleteResource(id);
+      onResourceDeleted(id);
+    } catch {
+      alert('Failed to delete resource.');
+    } finally {
+      setDeletingId(null);
+      setConfirmId(null);
+    }
+  };
 
   return (
     <div id={tableId} className="mb-10">
@@ -55,27 +73,49 @@ export default function ResourceTable({
                     {resource.availabilityWindows || '-'}
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        resource.status === 'ACTIVE'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-red-100 text-red-700'
-                      }`}
-                    >
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      resource.status === 'ACTIVE'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-red-100 text-red-700'
+                    }`}>
                       {resource.status === 'ACTIVE' ? 'Active' : 'Out of Service'}
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
                       <button
                         onClick={() => setEditingResource(resource)}
                         className="text-xs px-3 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg font-medium transition-colors"
                       >
                         Edit
                       </button>
-                      <button className="text-xs px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-medium transition-colors">
-                        Delete
-                      </button>
+
+                      {confirmId === resource.id ? (
+                        // Confirmation buttons
+                        <div className="flex gap-1 items-center">
+                          <span className="text-xs text-gray-500">Sure?</span>
+                          <button
+                            onClick={() => handleDelete(resource.id)}
+                            disabled={deletingId === resource.id}
+                            className="text-xs px-2 py-1 bg-red-600 text-white hover:bg-red-700 rounded-lg font-medium transition-colors disabled:opacity-50"
+                          >
+                            {deletingId === resource.id ? '...' : 'Yes'}
+                          </button>
+                          <button
+                            onClick={() => setConfirmId(null)}
+                            className="text-xs px-2 py-1 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-lg font-medium transition-colors"
+                          >
+                            No
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmId(resource.id)}
+                          className="text-xs px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-medium transition-colors"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
