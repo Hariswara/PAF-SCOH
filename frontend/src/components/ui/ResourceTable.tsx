@@ -1,12 +1,23 @@
+import { useState } from 'react';
 import type { ResourceResponse } from '../../types/resource';
+import EditResourceModal from './EditResourceModal';
 
 interface ResourceTableProps {
   resources: ResourceResponse[];
   title: string;
   tableId: string;
+  onResourceUpdated: (updated: ResourceResponse) => void;
 }
 
-export default function ResourceTable({ resources, title, tableId }: ResourceTableProps) {
+export default function ResourceTable({
+  resources,
+  title,
+  tableId,
+  onResourceUpdated,
+}: ResourceTableProps) {
+  const [editingResource, setEditingResource] =
+    useState<ResourceResponse | null>(null);
+
   return (
     <div id={tableId} className="mb-10">
       <h2 className="text-xl font-bold text-gray-800 mb-3">{title}</h2>
@@ -44,17 +55,22 @@ export default function ResourceTable({ resources, title, tableId }: ResourceTab
                     {resource.availabilityWindows || '-'}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      resource.status === 'ACTIVE'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-red-100 text-red-700'
-                    }`}>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                        resource.status === 'ACTIVE'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-red-100 text-red-700'
+                      }`}
+                    >
                       {resource.status === 'ACTIVE' ? 'Active' : 'Out of Service'}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <button className="text-xs px-3 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg font-medium transition-colors">
+                      <button
+                        onClick={() => setEditingResource(resource)}
+                        className="text-xs px-3 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg font-medium transition-colors"
+                      >
                         Edit
                       </button>
                       <button className="text-xs px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-medium transition-colors">
@@ -67,6 +83,17 @@ export default function ResourceTable({ resources, title, tableId }: ResourceTab
             </tbody>
           </table>
         </div>
+      )}
+
+      {editingResource && (
+        <EditResourceModal
+          resource={editingResource}
+          onClose={() => setEditingResource(null)}
+          onSaved={updated => {
+            onResourceUpdated(updated);
+            setEditingResource(null);
+          }}
+        />
       )}
     </div>
   );

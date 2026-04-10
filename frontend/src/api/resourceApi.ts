@@ -50,3 +50,24 @@ export async function getResources(params?: {
   if (!response.ok) throw new Error('Failed to fetch resources');
   return response.json();
 }
+
+export async function updateResource(
+  id: string,
+  data: ResourceDTO
+): Promise<ResourceResponse> {
+  const response = await fetch(`${BASE_URL}/resources/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-XSRF-TOKEN': getCsrfToken(),
+    },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw error;
+  }
+  return response.json();
+}

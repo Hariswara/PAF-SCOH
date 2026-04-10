@@ -80,6 +80,20 @@ export default function ResourcesPage() {
     }
   };
 
+  const handleResourceUpdated = (updated: ResourceResponse) => {
+    setTableFilters(prev => {
+      const newFilters = { ...prev };
+      TABS.forEach(tab => {
+        if (newFilters[tab.type]) {
+          newFilters[tab.type] = newFilters[tab.type].map(r =>
+            r.id === updated.id ? updated : r
+          );
+        }
+      });
+      return newFilters;
+    });
+  };
+
   const scrollToTable = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -151,6 +165,7 @@ export default function ResourcesPage() {
                   tableId={tab.id}
                   title={tab.label}
                   resources={tableFilters[tab.type] ?? []}
+                  onResourceUpdated={handleResourceUpdated}
                 />
               </div>
             ))}
