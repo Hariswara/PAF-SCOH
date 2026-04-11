@@ -1,83 +1,692 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarCheck, CalendarDays, Clock, MapPin, ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Plus } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import type { ResourceResponse } from '@/types/resource';
+import type {
+  BookingResponse,
+  CreateBookingRequest,
+  UpdateBookingRequest,
+} from '@/types/booking';
+import { bookingApi } from '@/lib/bookingApi';
+import { resourceApi } from '@/lib/resourceApi';
+import BookingSummaryCards from '../components/bookings/BookingSummaryCards';
+import BookingFilters from '../components/bookings/BookingFilters';
+import BookingTable from '../components/bookings/BookingTable';
+import BookingFormDialog from '../components/bookings/BookingFormDialog';
+import CancelBookingDialog from '../components/bookings/CancelBookingDialog';
+import ReviewBookingDialog from '../components/bookings/ReviewBookingDialog';
 
-const BookingsPage: React.FC = () => (
-  <div className="p-6 sm:p-8 max-w-[1400px] mx-auto page-enter">
+type FieldErrors = {
+  resourceId?: string;
+  bookingDate?: string;
+  startTime?: string;
+  endTime?: string;
+  purpose?: string;
+  expectedAttendees?: string;
+};
 
-    <Link
-      to="/dashboard"
-      className="inline-flex items-center gap-1.5 mb-6 group"
-      style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
-    >
-      <ArrowLeft size={13} className="transition-transform group-hover:-translate-x-0.5" />
-      <span className="text-[11px] font-semibold uppercase tracking-[0.15em] group-hover:text-[#1A2E1A] transition-colors">
-        Dashboard
-      </span>
-    </Link>
+type ReviewAction = 'APPROVE' | 'REJECT' | null;
 
-    <header className="mb-8">
-      <p
-        className="text-[10px] font-semibold uppercase tracking-[0.25em] mb-2"
-        style={{ color: '#2D7A3A', fontFamily: 'Albert Sans, sans-serif' }}
-      >
-        Campus
-      </p>
-      <h1
-        className="font-serif leading-tight mb-1"
-        style={{ color: '#1A2E1A', fontSize: 'clamp(26px, 3vw, 34px)' }}
-      >
-        Facility Bookings
-      </h1>
-      <p
-        className="text-[14px] leading-relaxed"
-        style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
-      >
-        Manage your room reservations and academic space requests.
-      </p>
-      <div
-        className="mt-5 h-px"
-        style={{ background: 'linear-gradient(90deg, #E2E8DF 0%, transparent 70%)' }}
-      />
-    </header>
+const BookingsPage: React.FC = () => {
+  const { user, isLoading } = useAuth();
 
-    <div
-      className="flex flex-col items-center justify-center py-24 rounded-lg"
-      style={{ background: '#FFFFFF', border: '1px dashed #E2E8DF' }}
-    >
-      <div className="flex items-center gap-3 mb-6">
-        {[CalendarCheck, CalendarDays, Clock, MapPin].map((Icon, i) => (
-          <div
-            key={i}
-            className="w-10 h-10 rounded-md flex items-center justify-center"
-            style={{ background: 'rgba(91,140,90,0.08)', opacity: 1 - i * 0.18 }}
-          >
-            <Icon size={16} style={{ color: '#5B8C5A' }} />
-          </div>
-        ))}
-      </div>
-      <p className="font-serif text-[22px] mb-2" style={{ color: '#1A2E1A' }}>
-        Coming Soon
-      </p>
-      <p
-        className="text-[13px] text-center max-w-xs"
-        style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
-      >
-        The booking management interface is under active development. You'll manage all your facility reservations here.
-      </p>
-      <div
-        className="mt-6 px-4 py-1.5 rounded-full text-[11px] font-semibold uppercase tracking-wider"
-        style={{
+  const currentRole = user?.role;
+  const isAdmin =
+    currentRole === 'SUPER_ADMIN' ||
+    currentRole === 'DOMAIN_ADMIN';
+
+  const [showForm, setShowForm] = useState(false);
+  const [editingBooking, setEditingBooking] = useState<BookingResponse | null>(null);
+
+  const [resourceId, setResourceId] = useState('');
+  const [resources, setResources] = useState<ResourceResponse[]>([]);
+  const [loadingResources, setLoadingResources] = useState(false);
+  const [submittingBooking, setSubmittingBooking] = useState(false);
+
+  const [bookingDate, setBookingDate] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [purpose, setPurpose] = useState('');
+  const [expectedAttendees, setExpectedAttendees] = useState('');
+
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const [bookings, setBookings] = useState<BookingResponse[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState(true);
+  const [bookingsError, setBookingsError] = useState('');
+
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [dateFilter, setDateFilter] = useState('');
+
+  const [successMessage, setSuccessMessage] = useState('');
+  const [actionErrorMessage, setActionErrorMessage] = useState('');
+
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showReviewDialog, setShowReviewDialog] = useState(false);
+
+  const [selectedBooking, setSelectedBooking] = useState<BookingResponse | null>(null);
+  const [reviewAction, setReviewAction] = useState<ReviewAction>(null);
+
+  const [cancellingBooking, setCancellingBooking] = useState(false);
+  const [processingReviewAction, setProcessingReviewAction] = useState(false);
+
+  const today = new Date().toISOString().split('T')[0];
+  const isEditMode = !!editingBooking;
+
+  const selectedResource = useMemo(
+    () => resources.find((resource) => resource.id === resourceId),
+    [resources, resourceId]
+  );
+
+  const validateForm = () => {
+    const newErrors: FieldErrors = {};
+
+    if (!resourceId) {
+      newErrors.resourceId = 'Resource is required.';
+    }
+
+    if (!bookingDate) {
+      newErrors.bookingDate = 'Booking date is required.';
+    } else if (bookingDate < today) {
+      newErrors.bookingDate = 'Booking date cannot be in the past.';
+    }
+
+    if (!startTime) {
+      newErrors.startTime = 'Start time is required.';
+    }
+
+    if (!endTime) {
+      newErrors.endTime = 'End time is required.';
+    }
+
+    if (startTime && endTime && startTime >= endTime) {
+      newErrors.endTime = 'End time must be later than start time.';
+    }
+
+    if (!purpose.trim()) {
+      newErrors.purpose = 'Purpose is required.';
+    }
+
+    if (!expectedAttendees) {
+      newErrors.expectedAttendees = 'Expected attendees is required.';
+    } else {
+      const count = Number(expectedAttendees);
+
+      if (Number.isNaN(count) || count < 1) {
+        newErrors.expectedAttendees = 'Expected attendees must be at least 1.';
+      } else if (
+        selectedResource?.capacity != null &&
+        count > selectedResource.capacity
+      ) {
+        newErrors.expectedAttendees = `Expected attendees cannot exceed capacity of ${selectedResource.capacity}.`;
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const resetForm = () => {
+    setEditingBooking(null);
+    setResourceId('');
+    setBookingDate('');
+    setStartTime('');
+    setEndTime('');
+    setPurpose('');
+    setExpectedAttendees('');
+    setErrors({});
+    setErrorMessage('');
+  };
+
+  const openCreateDialog = () => {
+    resetForm();
+    setShowForm(true);
+  };
+
+  const openEditDialog = (booking: BookingResponse) => {
+    setEditingBooking(booking);
+    setResourceId(booking.resourceId);
+    setBookingDate(booking.bookingDate);
+    setStartTime(booking.startTime.slice(0, 5));
+    setEndTime(booking.endTime.slice(0, 5));
+    setPurpose(booking.purpose);
+    setExpectedAttendees(String(booking.expectedAttendees));
+    setErrors({});
+    setErrorMessage('');
+    setSuccessMessage('');
+    setShowForm(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    const isValid = validateForm();
+
+    if (!isValid) {
+      setErrorMessage('Please correct the highlighted fields and try again.');
+      return;
+    }
+
+    setSubmittingBooking(true);
+
+    try {
+      const payload: CreateBookingRequest | UpdateBookingRequest = {
+        resourceId,
+        bookingDate,
+        startTime,
+        endTime,
+        purpose: purpose.trim(),
+        expectedAttendees: Number(expectedAttendees),
+      };
+
+      if (editingBooking) {
+        await bookingApi.update(editingBooking.id, payload);
+        setSuccessMessage(`Booking #${editingBooking.id} updated successfully.`);
+      } else {
+        await bookingApi.create(payload);
+        setSuccessMessage('Booking request submitted successfully.');
+      }
+
+      setShowForm(false);
+      resetForm();
+
+      await loadBookings(
+        {
+          status: statusFilter !== 'ALL' ? statusFilter : undefined,
+          date: dateFilter || undefined,
+        },
+        true
+      );
+    } catch (error: any) {
+      console.error('Booking save failed:', error?.response?.data || error);
+      setErrorMessage(
+        error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          (editingBooking ? 'Failed to update booking.' : 'Failed to create booking.')
+      );
+    } finally {
+      setSubmittingBooking(false);
+    }
+  };
+
+  const loadResources = async () => {
+    setLoadingResources(true);
+
+    try {
+      const data = await resourceApi.getAll();
+      const activeResources = data.filter(
+        (resource) => resource.status === 'ACTIVE'
+      );
+      setResources(activeResources);
+    } catch (error: any) {
+      console.error('Load resources failed:', error?.response?.data || error);
+      setResources([]);
+    } finally {
+      setLoadingResources(false);
+    }
+  };
+
+  const loadBookings = async (
+    filters?: { status?: string; date?: string },
+    isRefresh = false
+  ) => {
+    if (!isRefresh) {
+      setLoadingBookings(true);
+    }
+
+    setBookingsError('');
+
+    try {
+      const data = isAdmin
+        ? await bookingApi.getAll(filters)
+        : await bookingApi.getMine(filters);
+
+      setBookings(data);
+    } catch (error: any) {
+      console.error('Load bookings failed:', error?.response?.data || error);
+      setBookingsError(
+        error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          (isAdmin
+            ? 'Failed to load bookings.'
+            : 'Failed to load your bookings.')
+      );
+      setBookings([]);
+    } finally {
+      setLoadingBookings(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    void loadBookings({
+      status: statusFilter !== 'ALL' ? statusFilter : undefined,
+      date: dateFilter || undefined,
+    });
+  }, [statusFilter, dateFilter, isAdmin, isLoading]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    void loadResources();
+  }, [isLoading]);
+
+  const handleRefresh = async () => {
+    setSuccessMessage('');
+    setActionErrorMessage('');
+
+    await loadBookings(
+      {
+        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+        date: dateFilter || undefined,
+      },
+      true
+    );
+  };
+
+  const clearFilters = () => {
+    setStatusFilter('ALL');
+    setDateFilter('');
+  };
+
+  const hasActiveFilters = statusFilter !== 'ALL' || !!dateFilter;
+
+  const formatTime = (time: string) => {
+    if (!time) return '—';
+
+    const parts = time.split(':');
+    const hours = Number(parts[0]);
+    const minutes = Number(parts[1] ?? '0');
+
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+      return time;
+    }
+
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+
+    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+  };
+
+  const formatTimeRange = (start: string, end: string) => {
+    return `${formatTime(start)} - ${formatTime(end)}`;
+  };
+
+  const formatResource = (resourceId: string) => {
+    if (!resourceId) return '—';
+    if (resourceId.length <= 10) return resourceId;
+    return `${resourceId.slice(0, 8)}...`;
+  };
+
+  const getResourceName = (resourceId: string) => {
+    const resource = resources.find((item) => item.id === resourceId);
+    return resource?.name || formatResource(resourceId);
+  };
+
+  const getStatusBadgeStyles = (status: string) => {
+    switch (status) {
+      case 'APPROVED':
+        return {
+          background: 'rgba(45,122,58,0.10)',
+          color: '#2D7A3A',
+          borderColor: 'rgba(45,122,58,0.18)',
+        };
+      case 'PENDING':
+        return {
+          background: 'rgba(234,179,8,0.10)',
+          color: '#A16207',
+          borderColor: 'rgba(234,179,8,0.22)',
+        };
+      case 'REJECTED':
+        return {
+          background: 'rgba(217,68,68,0.10)',
+          color: '#B42318',
+          borderColor: 'rgba(217,68,68,0.20)',
+        };
+      case 'CANCELLED':
+        return {
+          background: 'rgba(107,123,107,0.10)',
+          color: '#5F6F5F',
+          borderColor: 'rgba(107,123,107,0.20)',
+        };
+      default:
+        return {
           background: 'rgba(91,140,90,0.08)',
-          color: '#5B8C5A',
-          border: '1px solid rgba(91,140,90,0.2)',
-          fontFamily: 'Albert Sans, sans-serif',
-        }}
-      >
-        Module B
+          color: '#2D7A3A',
+          borderColor: 'rgba(45,122,58,0.15)',
+        };
+    }
+  };
+
+  const canCancelBooking = (status: string) => {
+    return status === 'PENDING' || status === 'APPROVED';
+  };
+
+  const canReviewBooking = (status: string) => {
+    return status === 'PENDING';
+  };
+
+  const canEditBooking = (status: string) => {
+    return status === 'PENDING';
+  };
+
+  const openCancelDialog = (booking: BookingResponse) => {
+    setSelectedBooking(booking);
+    setActionErrorMessage('');
+    setSuccessMessage('');
+    setShowCancelDialog(true);
+  };
+
+  const openReviewDialog = (
+    booking: BookingResponse,
+    action: 'APPROVE' | 'REJECT'
+  ) => {
+    setSelectedBooking(booking);
+    setReviewAction(action);
+    setActionErrorMessage('');
+    setSuccessMessage('');
+    setShowReviewDialog(true);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!selectedBooking) return;
+
+    setCancellingBooking(true);
+    setActionErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      await bookingApi.cancel(selectedBooking.id);
+
+      setShowCancelDialog(false);
+      setSelectedBooking(null);
+      setSuccessMessage('Booking cancelled successfully.');
+
+      await loadBookings(
+        {
+          status: statusFilter !== 'ALL' ? statusFilter : undefined,
+          date: dateFilter || undefined,
+        },
+        true
+      );
+    } catch (error: any) {
+      console.error('Cancel booking failed:', error?.response?.data || error);
+      setActionErrorMessage(
+        error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          'Failed to cancel booking.'
+      );
+    } finally {
+      setCancellingBooking(false);
+    }
+  };
+
+  const handleConfirmReview = async () => {
+    if (!selectedBooking || !reviewAction) return;
+
+    setProcessingReviewAction(true);
+    setActionErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      if (reviewAction === 'APPROVE') {
+        await bookingApi.approve(selectedBooking.id);
+        setSuccessMessage(`Booking #${selectedBooking.id} approved successfully.`);
+      } else {
+        await bookingApi.reject(selectedBooking.id);
+        setSuccessMessage(`Booking #${selectedBooking.id} rejected successfully.`);
+      }
+
+      setShowReviewDialog(false);
+      setSelectedBooking(null);
+      setReviewAction(null);
+
+      await loadBookings(
+        {
+          status: statusFilter !== 'ALL' ? statusFilter : undefined,
+          date: dateFilter || undefined,
+        },
+        true
+      );
+    } catch (error: any) {
+      console.error('Review booking failed:', error?.response?.data || error);
+      setActionErrorMessage(
+        error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          `Failed to ${reviewAction.toLowerCase()} booking.`
+      );
+    } finally {
+      setProcessingReviewAction(false);
+    }
+  };
+
+  const bookingsSummary = useMemo(() => {
+    return {
+      total: bookings.length,
+      pending: bookings.filter((b) => b.status === 'PENDING').length,
+      approved: bookings.filter((b) => b.status === 'APPROVED').length,
+      cancelled: bookings.filter((b) => b.status === 'CANCELLED').length,
+      rejected: bookings.filter((b) => b.status === 'REJECTED').length,
+    };
+  }, [bookings]);
+
+  const pageTitle = isAdmin ? 'Booking Approvals' : 'Facility Bookings';
+  const sectionTitle = isAdmin ? 'All Bookings' : 'My Bookings';
+  const pageDescription = isAdmin
+    ? 'Review booking requests and manage their approval status.'
+    : 'View your booking history with current status and details.';
+  const sectionDescription = isAdmin
+    ? 'Review all booking requests with current status and available admin actions.'
+    : 'View your booking history with current status and details.';
+
+  if (isLoading) {
+    return (
+      <div className="p-6 sm:p-8 max-w-[1400px] mx-auto page-enter">
+        <div
+          className="rounded-xl border border-dashed px-6 py-14 text-center"
+          style={{ borderColor: '#DCE5D7', background: '#FBFCFA' }}
+        >
+          <p
+            className="text-[14px]"
+            style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+          >
+            Loading...
+          </p>
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="p-6 sm:p-8 max-w-[1400px] mx-auto page-enter">
+      <Link
+        to="/dashboard"
+        className="inline-flex items-center gap-1.5 mb-6 group"
+        style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+      >
+        <ArrowLeft
+          size={13}
+          className="transition-transform group-hover:-translate-x-0.5"
+        />
+        <span className="text-[11px] font-semibold uppercase tracking-[0.15em] group-hover:text-[#1A2E1A] transition-colors">
+          Dashboard
+        </span>
+      </Link>
+
+      <header className="mb-8 flex items-center justify-between gap-4">
+        <div>
+          <p
+            className="text-[10px] font-semibold uppercase tracking-[0.25em] mb-2"
+            style={{ color: '#2D7A3A', fontFamily: 'Albert Sans, sans-serif' }}
+          >
+            {isAdmin ? 'Admin' : 'Campus'}
+          </p>
+          <h1
+            className="font-serif leading-tight mb-1"
+            style={{ color: '#1A2E1A', fontSize: 'clamp(26px, 3vw, 34px)' }}
+          >
+            {pageTitle}
+          </h1>
+          <p
+            className="text-[14px] leading-relaxed"
+            style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
+          >
+            {pageDescription}
+          </p>
+        </div>
+
+        {!isAdmin && (
+          <Button
+            onClick={openCreateDialog}
+            className="bg-[#2D7A3A] hover:bg-[#256632] text-white"
+          >
+            <Plus size={16} />
+            Add Booking
+          </Button>
+        )}
+      </header>
+
+      {successMessage && (
+        <div
+          className="rounded-lg px-4 py-3 text-sm mb-4"
+          style={{
+            background: 'rgba(45,122,58,0.08)',
+            border: '1px solid rgba(45,122,58,0.18)',
+            color: '#2D7A3A',
+            fontFamily: 'Albert Sans, sans-serif',
+          }}
+        >
+          {successMessage}
+        </div>
+      )}
+
+      {actionErrorMessage && (
+        <div
+          className="rounded-lg px-4 py-3 text-sm mb-4"
+          style={{
+            background: 'rgba(217,68,68,0.08)',
+            border: '1px solid rgba(217,68,68,0.18)',
+            color: '#B42318',
+            fontFamily: 'Albert Sans, sans-serif',
+          }}
+        >
+          {actionErrorMessage}
+        </div>
+      )}
+
+      <BookingSummaryCards
+        isAdmin={isAdmin}
+        total={bookingsSummary.total}
+        pending={bookingsSummary.pending}
+        approved={bookingsSummary.approved}
+        cancelled={bookingsSummary.cancelled}
+        rejected={bookingsSummary.rejected}
+      />
+
+      <Card className="border-[#E2E8DF] shadow-sm bg-white mb-6">
+        <CardHeader className="gap-4">
+          <BookingFilters
+            statusFilter={statusFilter}
+            dateFilter={dateFilter}
+            setStatusFilter={setStatusFilter}
+            setDateFilter={setDateFilter}
+            clearFilters={clearFilters}
+            hasActiveFilters={hasActiveFilters}
+            handleRefresh={handleRefresh}
+            loadingBookings={loadingBookings}
+            title={sectionTitle}
+            description={sectionDescription}
+          />
+        </CardHeader>
+
+        <CardContent>
+          <BookingTable
+            bookings={bookings}
+            isAdmin={isAdmin}
+            hasActiveFilters={hasActiveFilters}
+            loadingBookings={loadingBookings}
+            bookingsError={bookingsError}
+            getResourceName={getResourceName}
+            formatTimeRange={formatTimeRange}
+            canCancelBooking={canCancelBooking}
+            canReviewBooking={canReviewBooking}
+            canEditBooking={canEditBooking}
+            getStatusBadgeStyles={getStatusBadgeStyles}
+            openCancelDialog={openCancelDialog}
+            openReviewDialog={openReviewDialog}
+            openEditDialog={openEditDialog}
+          />
+        </CardContent>
+      </Card>
+
+      {!isAdmin && (
+        <BookingFormDialog
+          open={showForm}
+          onOpenChange={(open) => {
+            setShowForm(open);
+            if (!open) {
+              resetForm();
+            }
+          }}
+          resourceId={resourceId}
+          setResourceId={setResourceId}
+          resources={resources}
+          loadingResources={loadingResources}
+          bookingDate={bookingDate}
+          setBookingDate={setBookingDate}
+          startTime={startTime}
+          setStartTime={setStartTime}
+          endTime={endTime}
+          setEndTime={setEndTime}
+          purpose={purpose}
+          setPurpose={setPurpose}
+          expectedAttendees={expectedAttendees}
+          setExpectedAttendees={setExpectedAttendees}
+          errors={errors}
+          errorMessage={errorMessage}
+          resetForm={resetForm}
+          handleSubmit={handleSubmit}
+          submittingBooking={submittingBooking}
+          selectedResource={selectedResource}
+          today={today}
+          isEditMode={isEditMode}
+        />
+      )}
+
+      {!isAdmin && (
+        <CancelBookingDialog
+          open={showCancelDialog}
+          onOpenChange={setShowCancelDialog}
+          selectedBooking={selectedBooking}
+          cancellingBooking={cancellingBooking}
+          handleConfirmCancel={handleConfirmCancel}
+          formatTimeRange={formatTimeRange}
+          getResourceName={getResourceName}
+          actionErrorMessage={actionErrorMessage}
+        />
+      )}
+
+      {isAdmin && (
+        <ReviewBookingDialog
+          open={showReviewDialog}
+          onOpenChange={setShowReviewDialog}
+          selectedBooking={selectedBooking}
+          reviewAction={reviewAction}
+          processingReviewAction={processingReviewAction}
+          handleConfirmReview={handleConfirmReview}
+          formatTimeRange={formatTimeRange}
+          getResourceName={getResourceName}
+          actionErrorMessage={actionErrorMessage}
+        />
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 export default BookingsPage;

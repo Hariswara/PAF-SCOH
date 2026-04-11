@@ -96,16 +96,19 @@ function NavLink({
           style={{ background: C.green }}
         />
       )}
-      <item.icon
-        size={15}
-        style={{ color: active ? C.green : C.muted, flexShrink: 0 }}
-      />
+      <div style={{ color: active ? C.green : C.muted }}>
+        <item.icon
+          size={15}
+          className="shrink-0"
+        />
+      </div>
+      
       {item.label}
       {active && (
         <ChevronRight
-          size={12}
-          className="ml-auto"
-          style={{ color: C.green, opacity: 0.5 }}
+         size={12}
+         className="ml-auto opacity-50"
+         color={C.green}
         />
       )}
     </Link>
