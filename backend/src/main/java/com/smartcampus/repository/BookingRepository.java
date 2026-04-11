@@ -27,6 +27,8 @@ public interface BookingRepository extends ListCrudRepository<Booking, Long> {
 
     List<Booking> findByResourceIdAndDate(UUID resourceId, LocalDate date);
 
+    List<Booking> findByResourceIdIn(Collection<UUID> resourceIds);
+
     boolean existsByResourceIdAndDateAndStartTimeLessThanAndEndTimeGreaterThanAndStatusNotIn(
             UUID resourceId,
             LocalDate date,
