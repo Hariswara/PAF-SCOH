@@ -141,12 +141,15 @@ public class ResourceService {
         User actor = requireActiveUser();
         Resource existing = findOrThrow(id);
 
+        if (actor.role() != UserRole.SUPER_ADMIN && actor.role() != UserRole.DOMAIN_ADMIN) {
+            throw new UnauthorizedActionException("You do not have permission to change resource status");
+       }
         if (actor.role() == UserRole.DOMAIN_ADMIN) {
-            if (!existing.domainId().equals(actor.domainId())) {
-                throw new UnauthorizedActionException(
-                        "Domain admins can only change status of resources in their own domain");
+           if (actor.domainId() == null || !existing.domainId().equals(actor.domainId())) {
+              throw new UnauthorizedActionException(
+                "Domain admins can only change status of resources in their own domain");
             }
-        }
+        }      
 
         Resource updated = new Resource(
                 existing.id(),

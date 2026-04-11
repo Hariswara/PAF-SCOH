@@ -1,6 +1,8 @@
 package com.smartcampus.repository;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,4 +26,12 @@ public interface BookingRepository extends ListCrudRepository<Booking, Long> {
     );
 
     List<Booking> findByResourceIdAndDate(UUID resourceId, LocalDate date);
+}
+    boolean existsByResourceIdAndDateAndStartTimeLessThanAndEndTimeGreaterThanAndStatusNotIn(
+            UUID resourceId,
+            LocalDate date,
+            LocalTime endTime,
+            LocalTime startTime,
+            Collection<BookingStatus> statuses
+    );
 }

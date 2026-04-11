@@ -97,6 +97,12 @@ public class GlobalExceptionHandler {
         body.put("timestamp", Instant.now());
         body.put("status", HttpStatus.BAD_REQUEST.value());
         body.put("message", ex.getMessage());
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        Map<String, Object> body = Map.of(
+                "timestamp", Instant.now(),
+                "status", HttpStatus.BAD_REQUEST.value(),
+                "message", ex.getMessage());
 
         return ResponseEntity.badRequest().body(body);
     }
@@ -111,6 +117,12 @@ public class GlobalExceptionHandler {
         body.put("timestamp", Instant.now());
         body.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
         body.put("message", ex.getMessage() != null ? ex.getMessage() : "Unexpected server error");
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> handleGeneral(Exception ex) {
+        Map<String, Object> body = Map.of(
+                "timestamp", Instant.now(),
+                "status", HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "message", "An unexpected error occurred");
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
