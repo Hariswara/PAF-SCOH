@@ -161,3 +161,22 @@ CREATE INDEX IF NOT EXISTS idx_notifications_created   ON notifications(created_
 -- v3: Add profile fields to existing users table (safe to re-run; errors ignored via continue-on-error)
 ALTER TABLE users ADD COLUMN contact_email VARCHAR(255);
 ALTER TABLE users ADD COLUMN gender VARCHAR(20);
+ CREATE TABLE IF NOT EXISTS bookings(
+    id BIGSERIAL PRIMARY KEY,
+    resource_id UUID NOT NULL,
+    date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    purpose VARCHAR(255) NOT NULL,
+    expected_attendees INTEGER NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    created_by VARCHAR(100),
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    reviewed_by VARCHAR(100),
+    reviewed_at TIMESTAMP,
+    CONSTRAINT fk_bookings_resource
+        FOREIGN KEY (resource_id)
+        REFERENCES resources(id)
+        ON DELETE CASCADE
+);

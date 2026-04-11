@@ -1,10 +1,8 @@
 package com.smartcampus.config;
 
-import com.smartcampus.repository.UserRepository;
-import com.smartcampus.service.CustomOAuth2UserService;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
@@ -12,6 +10,11 @@ import org.springframework.security.web.authentication.www.BasicAuthenticationFi
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+
+import com.smartcampus.repository.UserRepository;
+import com.smartcampus.service.CustomOAuth2UserService;
+
+import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 @EnableWebSecurity
@@ -46,30 +49,26 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/passkey/login/**").permitAll()
                 .requestMatchers("/api/auth/register/**").hasAuthority("STATUS_PENDING_PROFILE")
 
-                // Domain management - Write actions are SUPER_ADMIN only
-                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/domains").hasRole("SUPER_ADMIN")
-                .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/domains/**").hasRole("SUPER_ADMIN")
-                .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/domains/**").hasRole("SUPER_ADMIN")
-                .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/domains/**").hasRole("SUPER_ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/domains").hasRole("SUPER_ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/domains/**").hasRole("SUPER_ADMIN")
+                .requestMatchers(HttpMethod.PATCH, "/api/domains/**").hasRole("SUPER_ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/domains/**").hasRole("SUPER_ADMIN")
 
-                // Ticket endpoints – admin-only: assign technician
-                .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/tickets/*/assign")
+                .requestMatchers(HttpMethod.PATCH, "/api/tickets/*/assign")
                     .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
-                // Duplicate check is open to any active user
-                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/tickets/duplicates/**")
+                .requestMatchers(HttpMethod.GET, "/api/tickets/duplicates/**")
                     .hasAuthority("STATUS_ACTIVE")
-                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/tickets/duplicates/**")
+                .requestMatchers(HttpMethod.POST, "/api/tickets/duplicates/**")
                     .hasAuthority("STATUS_ACTIVE")
 
-                .requestMatchers(org.springframework.http.HttpMethod.POST,   "/api/resources")
+                .requestMatchers(HttpMethod.POST, "/api/resources")
                     .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
-                .requestMatchers(org.springframework.http.HttpMethod.PUT,    "/api/resources/**")
+                .requestMatchers(HttpMethod.PUT, "/api/resources/**")
                     .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
-                .requestMatchers(org.springframework.http.HttpMethod.PATCH,  "/api/resources/*/status")
+                .requestMatchers(HttpMethod.PATCH, "/api/resources/*/status")
                     .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
-                .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/resources/**")
+                .requestMatchers(HttpMethod.DELETE, "/api/resources/**")
                     .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
-
 
                 .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
                 .requestMatchers("/api/**").hasAuthority("STATUS_ACTIVE")
@@ -95,7 +94,10 @@ public class SecurityConfig {
                     }
                 })
                 .accessDeniedHandler((request, response, accessDeniedException) ->
-                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: " + accessDeniedException.getMessage())
+                    response.sendError(
+                        HttpServletResponse.SC_FORBIDDEN,
+                        "Access Denied: " + accessDeniedException.getMessage()
+                    )
                 )
             );
 
