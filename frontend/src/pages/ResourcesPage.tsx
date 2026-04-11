@@ -610,8 +610,9 @@ const ResourcesPage: React.FC = () => {
       await resourceApi.updateStatus(r.id, {
         status: r.status === 'ACTIVE' ? 'OUT_OF_SERVICE' : 'ACTIVE',
       });
-      toast.success(`Resource marked as ${r.status === 'ACTIVE' ? 'Out of Service' : 'Active'}.`);
-      fetchResources();
+      const newStatus = r.status === 'ACTIVE' ? 'Out of Service' : 'Active';
+      toast.success(`Resource marked as ${newStatus}.`);
+      await fetchResources();   // ← now awaited
     } catch {
       toast.error('Failed to update status.');
     }

@@ -65,7 +65,7 @@ public class SecurityConfig {
                     .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
                 .requestMatchers(org.springframework.http.HttpMethod.PUT,    "/api/resources/**")
                     .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
-                .requestMatchers(org.springframework.http.HttpMethod.PATCH,  "/api/resources/**/status")
+                .requestMatchers(org.springframework.http.HttpMethod.PATCH,  "/api/resources/*/status")
                     .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
                 .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/resources/**")
                     .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
