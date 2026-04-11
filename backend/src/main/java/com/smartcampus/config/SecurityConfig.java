@@ -49,13 +49,11 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/passkey/login/**").permitAll()
                 .requestMatchers("/api/auth/register/**").hasAuthority("STATUS_PENDING_PROFILE")
 
-                // Domain management - Write actions are SUPER_ADMIN only
                 .requestMatchers(HttpMethod.POST, "/api/domains").hasRole("SUPER_ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/domains/**").hasRole("SUPER_ADMIN")
                 .requestMatchers(HttpMethod.PATCH, "/api/domains/**").hasRole("SUPER_ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/domains/**").hasRole("SUPER_ADMIN")
 
-                // Ticket endpoints – admin-only: assign technician
                 .requestMatchers(HttpMethod.PATCH, "/api/tickets/*/assign")
                     .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/tickets/duplicates/**")
@@ -63,13 +61,11 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/tickets/duplicates/**")
                     .hasAuthority("STATUS_ACTIVE")
 
-                // Resource management
                 .requestMatchers(HttpMethod.POST, "/api/resources")
                     .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/resources/**")
                     .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
                 .requestMatchers(HttpMethod.PATCH, "/api/resources/*/status")
-                .requestMatchers(org.springframework.http.HttpMethod.PATCH,  "/api/resources/*/status")
                     .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/resources/**")
                     .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
@@ -98,8 +94,10 @@ public class SecurityConfig {
                     }
                 })
                 .accessDeniedHandler((request, response, accessDeniedException) ->
-                    response.sendError(HttpServletResponse.SC_FORBIDDEN,
-                        "Access Denied: " + accessDeniedException.getMessage())
+                    response.sendError(
+                        HttpServletResponse.SC_FORBIDDEN,
+                        "Access Denied: " + accessDeniedException.getMessage()
+                    )
                 )
             );
 
