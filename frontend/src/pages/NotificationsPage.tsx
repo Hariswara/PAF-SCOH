@@ -4,6 +4,7 @@ import {
   Check, CheckCheck, Ticket, Inbox,
   MessageSquare, ShieldCheck, UserPlus, UserCog,
   AlertOctagon, ArrowUpRight,
+  CalendarPlus, CalendarCheck, CalendarX, CalendarMinus,
 } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 import type { NotificationResponse, NotificationType } from '@/types/notification';
@@ -30,17 +31,21 @@ const C = {
 type IconComp = React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
 
 const TYPE_META: Record<NotificationType, { icon: IconComp; color: string; bg: string; label: string }> = {
-  TICKET_CREATED:        { icon: Ticket,       color: C.green, bg: C.greenDim, label: 'New Ticket' },
-  TICKET_ASSIGNED:       { icon: ArrowUpRight, color: C.blue,  bg: C.blueDim,  label: 'Assigned' },
-  TICKET_STATUS_CHANGED: { icon: ShieldCheck,  color: C.amber, bg: C.amberDim, label: 'Status' },
-  TICKET_COMMENT_ADDED:  { icon: MessageSquare,color: C.green, bg: C.greenDim, label: 'Comment' },
-  USER_REGISTERED:       { icon: UserPlus,     color: C.blue,  bg: C.blueDim,  label: 'Registered' },
-  USER_ACTIVATED:        { icon: ShieldCheck,  color: C.green, bg: C.greenDim, label: 'Activated' },
-  USER_ROLE_CHANGED:     { icon: UserCog,      color: C.blue,  bg: C.blueDim,  label: 'Role' },
-  USER_SUSPENDED:        { icon: AlertOctagon, color: C.red,   bg: C.redDim,   label: 'Suspended' },
+  TICKET_CREATED:        { icon: Ticket,        color: C.green, bg: C.greenDim, label: 'New Ticket' },
+  TICKET_ASSIGNED:       { icon: ArrowUpRight,  color: C.blue,  bg: C.blueDim,  label: 'Assigned' },
+  TICKET_STATUS_CHANGED: { icon: ShieldCheck,   color: C.amber, bg: C.amberDim, label: 'Status' },
+  TICKET_COMMENT_ADDED:  { icon: MessageSquare, color: C.green, bg: C.greenDim, label: 'Comment' },
+  BOOKING_CREATED:       { icon: CalendarPlus,  color: C.blue,  bg: C.blueDim,  label: 'New Booking' },
+  BOOKING_APPROVED:      { icon: CalendarCheck, color: C.green, bg: C.greenDim, label: 'Approved' },
+  BOOKING_REJECTED:      { icon: CalendarX,     color: C.red,   bg: C.redDim,   label: 'Rejected' },
+  BOOKING_CANCELLED:     { icon: CalendarMinus, color: C.amber, bg: C.amberDim, label: 'Cancelled' },
+  USER_REGISTERED:       { icon: UserPlus,      color: C.blue,  bg: C.blueDim,  label: 'Registered' },
+  USER_ACTIVATED:        { icon: ShieldCheck,   color: C.green, bg: C.greenDim, label: 'Activated' },
+  USER_ROLE_CHANGED:     { icon: UserCog,       color: C.blue,  bg: C.blueDim,  label: 'Role' },
+  USER_SUSPENDED:        { icon: AlertOctagon,  color: C.red,   bg: C.redDim,   label: 'Suspended' },
 };
 
-type FilterTab = 'all' | 'unread' | 'tickets' | 'account';
+type FilterTab = 'all' | 'unread' | 'tickets' | 'bookings' | 'account';
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -81,6 +86,7 @@ const NotificationsPage: React.FC = () => {
   const filtered = notifications.filter(n => {
     if (activeTab === 'unread') return !n.isRead;
     if (activeTab === 'tickets') return n.referenceType === 'TICKET';
+    if (activeTab === 'bookings') return n.referenceType === 'BOOKING';
     if (activeTab === 'account') return n.referenceType === 'USER';
     return true;
   });
@@ -90,6 +96,7 @@ const NotificationsPage: React.FC = () => {
   const handleClick = (n: NotificationResponse) => {
     if (!n.isRead) markAsRead(n.id);
     if (n.referenceType === 'TICKET' && n.referenceId) navigate(`/tickets/${n.referenceId}`);
+    else if (n.referenceType === 'BOOKING') navigate('/bookings');
     else if (n.referenceType === 'USER' && n.referenceId) navigate('/profile');
   };
 
@@ -97,6 +104,7 @@ const NotificationsPage: React.FC = () => {
     { id: 'all', label: 'All' },
     { id: 'unread', label: 'Unread', count: unreadCount },
     { id: 'tickets', label: 'Tickets' },
+    { id: 'bookings', label: 'Bookings' },
     { id: 'account', label: 'Account' },
   ];
 

@@ -1,6 +1,7 @@
 package com.smartcampus.service;
 
 import com.smartcampus.dto.NotificationResponse;
+import com.smartcampus.event.BookingEvent;
 import com.smartcampus.event.TicketEvent;
 import com.smartcampus.event.UserEvent;
 import com.smartcampus.model.Notification;
@@ -17,6 +18,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -175,6 +177,110 @@ public class NotificationService {
             event.userId().toString(),
             "USER"
         );
+    }
+
+    // ── Booking Event Listeners ──
+
+    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("h:mm a");
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("MMM d, yyyy");
+
+    private String bookingSlot(BookingEvent event) {
+        return event.resourceName() + " on " + event.date().format(DATE_FMT)
+               + " (" + event.startTime().format(TIME_FMT) + " – " + event.endTime().format(TIME_FMT) + ")";
+    }
+
+    @Async
+    @TransactionalEventListener
+    public void onBookingCreated(BookingEvent.Created event) {
+        List<User> admins = new java.util.ArrayList<>(
+            userRepository.findByRoleAndStatus(UserRole.SUPER_ADMIN, UserStatus.ACTIVE));
+        userRepository.findByRoleAndStatus(UserRole.DOMAIN_ADMIN, UserStatus.ACTIVE)
+            .forEach(admins::add);
+
+        for (User admin : admins) {
+            if (admin.id().equals(event.createdByUserId())) continue;
+            if (admin.role() == UserRole.DOMAIN_ADMIN) {
+                if (admin.domainId() == null || event.resourceDomainId() == null
+                        || !admin.domainId().equals(event.resourceDomainId())) {
+                    continue;
+                }
+            }
+            createAndPush(
+                admin.id(),
+                NotificationType.BOOKING_CREATED,
+                "New Booking Request",
+                event.createdByName() + " requested to book " + bookingSlot(event),
+                event.bookingId().toString(),
+                "BOOKING"
+            );
+        }
+    }
+
+    @Async
+    @TransactionalEventListener
+    public void onBookingApproved(BookingEvent.Approved event) {
+        if (event.bookerUserId() == null) return;
+        createAndPush(
+            event.bookerUserId(),
+            NotificationType.BOOKING_APPROVED,
+            "Booking Approved",
+            "Your booking for " + bookingSlot(event) + " has been approved by " + event.reviewerName(),
+            event.bookingId().toString(),
+            "BOOKING"
+        );
+    }
+
+    @Async
+    @TransactionalEventListener
+    public void onBookingRejected(BookingEvent.Rejected event) {
+        if (event.bookerUserId() == null) return;
+        createAndPush(
+            event.bookerUserId(),
+            NotificationType.BOOKING_REJECTED,
+            "Booking Rejected",
+            "Your booking for " + bookingSlot(event) + " has been rejected by " + event.reviewerName(),
+            event.bookingId().toString(),
+            "BOOKING"
+        );
+    }
+
+    @Async
+    @TransactionalEventListener
+    public void onBookingCancelled(BookingEvent.Cancelled event) {
+        if (event.cancelledByAdmin()) {
+            if (event.bookerUserId() == null) return;
+            createAndPush(
+                event.bookerUserId(),
+                NotificationType.BOOKING_CANCELLED,
+                "Booking Cancelled",
+                "Your booking for " + bookingSlot(event) + " has been cancelled by " + event.cancelledByName(),
+                event.bookingId().toString(),
+                "BOOKING"
+            );
+        } else {
+            List<User> admins = new java.util.ArrayList<>(
+                userRepository.findByRoleAndStatus(UserRole.SUPER_ADMIN, UserStatus.ACTIVE));
+            userRepository.findByRoleAndStatus(UserRole.DOMAIN_ADMIN, UserStatus.ACTIVE)
+                .forEach(admins::add);
+
+            for (User admin : admins) {
+                if (admin.id().equals(event.bookerUserId())) continue;
+                if (admin.role() == UserRole.DOMAIN_ADMIN) {
+                    if (admin.domainId() == null || event.resourceDomainId() == null
+                            || !admin.domainId().equals(event.resourceDomainId())) {
+                        continue;
+                    }
+                }
+                createAndPush(
+                    admin.id(),
+                    NotificationType.BOOKING_CANCELLED,
+                    "Booking Cancelled",
+                    event.bookerName() + " cancelled their booking for " + bookingSlot(event),
+                    event.bookingId().toString(),
+                    "BOOKING"
+                );
+            }
+        }
     }
 
     // ── REST-facing methods ──

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Bell, CheckCheck, Ticket, UserCog,
   ChevronRight, MessageSquare, ShieldCheck, UserPlus, AlertOctagon,
-  ArrowUpRight, Inbox,
+  ArrowUpRight, Inbox, CalendarPlus, CalendarCheck, CalendarX, CalendarMinus,
 } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 import type { NotificationResponse, NotificationType } from '@/types/notification';
@@ -29,14 +29,18 @@ const C = {
 type IconComp = React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
 
 const TYPE_META: Record<NotificationType, { icon: IconComp; color: string; bg: string }> = {
-  TICKET_CREATED:        { icon: Ticket,       color: C.green, bg: C.greenDim },
-  TICKET_ASSIGNED:       { icon: ArrowUpRight, color: C.blue,  bg: C.blueDim },
-  TICKET_STATUS_CHANGED: { icon: ShieldCheck,  color: C.amber, bg: C.amberDim },
-  TICKET_COMMENT_ADDED:  { icon: MessageSquare,color: C.green, bg: C.greenDim },
-  USER_REGISTERED:       { icon: UserPlus,     color: C.blue,  bg: C.blueDim },
-  USER_ACTIVATED:        { icon: ShieldCheck,  color: C.green, bg: C.greenDim },
-  USER_ROLE_CHANGED:     { icon: UserCog,      color: C.blue,  bg: C.blueDim },
-  USER_SUSPENDED:        { icon: AlertOctagon, color: C.red,   bg: C.redDim },
+  TICKET_CREATED:        { icon: Ticket,        color: C.green, bg: C.greenDim },
+  TICKET_ASSIGNED:       { icon: ArrowUpRight,  color: C.blue,  bg: C.blueDim },
+  TICKET_STATUS_CHANGED: { icon: ShieldCheck,   color: C.amber, bg: C.amberDim },
+  TICKET_COMMENT_ADDED:  { icon: MessageSquare, color: C.green, bg: C.greenDim },
+  BOOKING_CREATED:       { icon: CalendarPlus,  color: C.blue,  bg: C.blueDim },
+  BOOKING_APPROVED:      { icon: CalendarCheck, color: C.green, bg: C.greenDim },
+  BOOKING_REJECTED:      { icon: CalendarX,     color: C.red,   bg: C.redDim },
+  BOOKING_CANCELLED:     { icon: CalendarMinus, color: C.amber, bg: C.amberDim },
+  USER_REGISTERED:       { icon: UserPlus,      color: C.blue,  bg: C.blueDim },
+  USER_ACTIVATED:        { icon: ShieldCheck,   color: C.green, bg: C.greenDim },
+  USER_ROLE_CHANGED:     { icon: UserCog,       color: C.blue,  bg: C.blueDim },
+  USER_SUSPENDED:        { icon: AlertOctagon,  color: C.red,   bg: C.redDim },
 };
 
 function timeAgo(dateStr: string): string {
@@ -132,6 +136,7 @@ const NotificationBell: React.FC = () => {
     if (!n.isRead) markAsRead(n.id);
     close();
     if (n.referenceType === 'TICKET' && n.referenceId) navigate(`/tickets/${n.referenceId}`);
+    else if (n.referenceType === 'BOOKING') navigate('/bookings');
     else if (n.referenceType === 'USER' && n.referenceId) navigate('/profile');
   };
 

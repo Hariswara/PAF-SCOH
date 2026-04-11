@@ -7,17 +7,23 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.smartcampus.dto.BookingResponse;
 import com.smartcampus.dto.CreateBookingRequest;
 import com.smartcampus.dto.ReviewBookingRequest;
 import com.smartcampus.dto.UpdateBookingRequest;
+import com.smartcampus.event.BookingEvent;
 import com.smartcampus.model.Booking;
 import com.smartcampus.model.BookingStatus;
+import com.smartcampus.model.Resource;
 import com.smartcampus.model.User;
 import com.smartcampus.model.UserRole;
 import com.smartcampus.repository.BookingRepository;
+import com.smartcampus.repository.ResourceRepository;
+import com.smartcampus.repository.UserRepository;
 
 @Service
 public class BookingService {
@@ -27,12 +33,22 @@ public class BookingService {
 
     private final BookingRepository bookingRepository;
     private final AuthService authService;
+    private final ApplicationEventPublisher eventPublisher;
+    private final ResourceRepository resourceRepository;
+    private final UserRepository userRepository;
 
-    public BookingService(BookingRepository bookingRepository, AuthService authService) {
+    public BookingService(BookingRepository bookingRepository, AuthService authService,
+                          ApplicationEventPublisher eventPublisher,
+                          ResourceRepository resourceRepository,
+                          UserRepository userRepository) {
         this.bookingRepository = bookingRepository;
         this.authService = authService;
+        this.eventPublisher = eventPublisher;
+        this.resourceRepository = resourceRepository;
+        this.userRepository = userRepository;
     }
 
+    @Transactional
     public BookingResponse createBooking(CreateBookingRequest request) {
 
         if (!request.getStartTime().isBefore(request.getEndTime())) {
@@ -83,6 +99,16 @@ public class BookingService {
         booking.setUpdatedAt(LocalDateTime.now());
 
         Booking saved = bookingRepository.save(booking);
+
+        Resource resource = resourceRepository.findById(saved.getResourceId()).orElse(null);
+        String resourceName = resource != null ? resource.name() : "a resource";
+        UUID resourceDomainId = resource != null ? resource.domainId() : null;
+        eventPublisher.publishEvent(new BookingEvent.Created(
+                saved.getId(), currentUser.id(), currentUser.fullName(),
+                saved.getResourceId(), resourceName,
+                saved.getDate(), saved.getStartTime(), saved.getEndTime(),
+                saved.getPurpose(), resourceDomainId));
+
         return mapToBookingResponse(saved);
     }
 
@@ -168,7 +194,7 @@ public class BookingService {
             throw new IllegalStateException("Only admin users can view all bookings");
         }
 
-        List<Booking> bookings = bookingRepository.findAll();
+        List<Booking> bookings = loadBookingsVisibleToAdmin(currentUser);
 
         return bookings.stream()
                 .filter(booking -> status == null || booking.getStatus() == status)
@@ -207,6 +233,7 @@ public class BookingService {
                 .toList();
     }
 
+    @Transactional
     public BookingResponse reviewBooking(Long id, ReviewBookingRequest request) {
 
         Booking booking = bookingRepository.findById(id)
@@ -220,6 +247,8 @@ public class BookingService {
         if (!isAdmin) {
             throw new IllegalStateException("Only admin users can review bookings");
         }
+
+        assertDomainAdminCanManageBooking(currentUser, booking);
 
         if (booking.getStatus() != BookingStatus.PENDING) {
             throw new IllegalStateException(
@@ -258,9 +287,32 @@ public class BookingService {
         booking.setUpdatedAt(LocalDateTime.now());
 
         Booking saved = bookingRepository.save(booking);
+
+        String resourceName = resourceRepository.findById(saved.getResourceId())
+                .map(Resource::name).orElse("a resource");
+        UUID bookerUserId = userRepository.findByEmail(saved.getCreatedBy())
+                .map(User::id).orElse(null);
+        String bookerName = userRepository.findByEmail(saved.getCreatedBy())
+                .map(User::fullName).orElse(saved.getCreatedBy());
+
+        if (request.getStatus() == BookingStatus.APPROVED) {
+            eventPublisher.publishEvent(new BookingEvent.Approved(
+                    saved.getId(), bookerUserId, bookerName,
+                    saved.getResourceId(), resourceName,
+                    saved.getDate(), saved.getStartTime(), saved.getEndTime(),
+                    currentUser.fullName()));
+        } else {
+            eventPublisher.publishEvent(new BookingEvent.Rejected(
+                    saved.getId(), bookerUserId, bookerName,
+                    saved.getResourceId(), resourceName,
+                    saved.getDate(), saved.getStartTime(), saved.getEndTime(),
+                    currentUser.fullName()));
+        }
+
         return mapToBookingResponse(saved);
     }
 
+    @Transactional
     public BookingResponse cancelBooking(Long id) {
 
         Booking booking = bookingRepository.findById(id)
@@ -290,6 +342,9 @@ public class BookingService {
                 throw new IllegalStateException(
                         "Invalid status transition. Only the booking owner or an admin can cancel an approved booking");
             }
+            if (!isOwner && isAdmin) {
+                assertDomainAdminCanManageBooking(currentUser, booking);
+            }
         } else {
             throw new IllegalStateException(
                     "Invalid status transition. This booking cannot be cancelled");
@@ -299,6 +354,21 @@ public class BookingService {
         booking.setUpdatedAt(LocalDateTime.now());
 
         Booking saved = bookingRepository.save(booking);
+
+        Resource resource = resourceRepository.findById(saved.getResourceId()).orElse(null);
+        String resourceName = resource != null ? resource.name() : "a resource";
+        UUID resourceDomainId = resource != null ? resource.domainId() : null;
+        UUID bookerUserId = userRepository.findByEmail(saved.getCreatedBy())
+                .map(User::id).orElse(null);
+        String bookerName = userRepository.findByEmail(saved.getCreatedBy())
+                .map(User::fullName).orElse(saved.getCreatedBy());
+
+        eventPublisher.publishEvent(new BookingEvent.Cancelled(
+                saved.getId(), bookerUserId, bookerName,
+                saved.getResourceId(), resourceName,
+                saved.getDate(), saved.getStartTime(), saved.getEndTime(),
+                currentUser.fullName(), isAdmin, resourceDomainId));
+
         return mapToBookingResponse(saved);
     }
 
@@ -327,6 +397,50 @@ public class BookingService {
         }
 
         return currentUser;
+    }
+
+    /**
+     * Super admins see all bookings. Domain admins only see bookings for resources in their domain.
+     */
+    private List<Booking> loadBookingsVisibleToAdmin(User currentUser) {
+        if (currentUser.role() == UserRole.SUPER_ADMIN) {
+            return bookingRepository.findAll();
+        }
+        if (currentUser.role() == UserRole.DOMAIN_ADMIN) {
+            UUID domainId = currentUser.domainId();
+            if (domainId == null) {
+                throw new IllegalStateException("Domain administrator has no domain assigned");
+            }
+            List<UUID> resourceIds = resourceRepository.findByDomainIdOrderByCreatedAtDesc(domainId)
+                    .stream()
+                    .map(Resource::id)
+                    .toList();
+            if (resourceIds.isEmpty()) {
+                return List.of();
+            }
+            return bookingRepository.findByResourceIdIn(resourceIds);
+        }
+        throw new IllegalStateException("Only admin users can view all bookings");
+    }
+
+    /**
+     * Ensures a domain admin may only act on bookings whose resource belongs to their domain.
+     * Super admins are unrestricted.
+     */
+    private void assertDomainAdminCanManageBooking(User admin, Booking booking) {
+        if (admin.role() != UserRole.DOMAIN_ADMIN) {
+            return;
+        }
+        UUID domainId = admin.domainId();
+        if (domainId == null) {
+            throw new IllegalStateException("Domain administrator has no domain assigned");
+        }
+        Resource resource = resourceRepository.findById(booking.getResourceId())
+                .orElseThrow(() -> new IllegalArgumentException("Resource not found"));
+        if (!domainId.equals(resource.domainId())) {
+            throw new IllegalStateException(
+                    "You can only manage bookings for resources in your domain");
+        }
     }
 
     private BookingResponse mapToBookingResponse(Booking booking) {
