@@ -18,6 +18,7 @@ type Props = {
   handleConfirmCancel: () => void;
   formatTimeRange: (start: string, end: string) => string;
   getResourceName: (resourceId: string) => string;
+  actionErrorMessage: string;
 };
 
 const CancelBookingDialog: React.FC<Props> = ({
@@ -28,6 +29,7 @@ const CancelBookingDialog: React.FC<Props> = ({
   handleConfirmCancel,
   formatTimeRange,
   getResourceName,
+  actionErrorMessage,
 }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -76,6 +78,19 @@ const CancelBookingDialog: React.FC<Props> = ({
                 {selectedBooking.status}
               </p>
             </div>
+          </div>
+        )}
+
+        {actionErrorMessage && (
+          <div
+            className="rounded-lg px-4 py-3 text-sm"
+            style={{
+              background: 'rgba(217,68,68,0.08)',
+              border: '1px solid rgba(217,68,68,0.18)',
+              color: '#B42318',
+            }}
+          >
+            {actionErrorMessage}
           </div>
         )}
 

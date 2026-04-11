@@ -7,6 +7,15 @@ export interface CreateBookingRequest {
   expectedAttendees: number;
 }
 
+export interface UpdateBookingRequest {
+  resourceId: string;
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+  purpose: string;
+  expectedAttendees: number;
+}
+
 export interface BookingResponse {
   id: number;
   resourceId: string;

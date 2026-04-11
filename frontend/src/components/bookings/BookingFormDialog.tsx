@@ -62,6 +62,7 @@ type Props = {
   submittingBooking: boolean;
   selectedResource?: ResourceResponse;
   today: string;
+  isEditMode: boolean;
 };
 
 const BookingFormDialog: React.FC<Props> = ({
@@ -88,6 +89,7 @@ const BookingFormDialog: React.FC<Props> = ({
   submittingBooking,
   selectedResource,
   today,
+  isEditMode,
 }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -100,7 +102,7 @@ const BookingFormDialog: React.FC<Props> = ({
                   className="font-serif text-[24px]"
                   style={{ color: '#1A2E1A' }}
                 >
-                  Create Booking Request
+                  {isEditMode ? 'Edit Booking Request' : 'Create Booking Request'}
                 </DialogTitle>
                 <DialogDescription
                   className="text-[13px] mt-2"
@@ -109,7 +111,9 @@ const BookingFormDialog: React.FC<Props> = ({
                     fontFamily: 'Albert Sans, sans-serif',
                   }}
                 >
-                  Complete the form below to submit your booking request.
+                  {isEditMode
+                    ? 'Update the booking details below.'
+                    : 'Complete the form below to submit your booking request.'}
                 </DialogDescription>
               </div>
 
@@ -327,7 +331,13 @@ const BookingFormDialog: React.FC<Props> = ({
                   disabled={submittingBooking}
                   className="bg-[#2D7A3A] hover:bg-[#256632] text-white"
                 >
-                  {submittingBooking ? 'Submitting...' : 'Submit Booking'}
+                  {submittingBooking
+                    ? isEditMode
+                      ? 'Updating...'
+                      : 'Submitting...'
+                    : isEditMode
+                      ? 'Update Booking'
+                      : 'Submit Booking'}
                 </Button>
               </DialogFooter>
             </form>

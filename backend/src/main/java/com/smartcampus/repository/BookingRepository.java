@@ -2,6 +2,7 @@ package com.smartcampus.repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.data.repository.ListCrudRepository;
 
@@ -21,4 +22,6 @@ public interface BookingRepository extends ListCrudRepository<Booking, Long> {
             BookingStatus status,
             LocalDate date
     );
+
+    List<Booking> findByResourceIdAndDate(UUID resourceId, LocalDate date);
 }

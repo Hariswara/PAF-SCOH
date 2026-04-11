@@ -19,6 +19,7 @@ type Props = {
   handleConfirmReview: () => void;
   formatTimeRange: (start: string, end: string) => string;
   getResourceName: (resourceId: string) => string;
+  actionErrorMessage: string;
 };
 
 const ReviewBookingDialog: React.FC<Props> = ({
@@ -30,6 +31,7 @@ const ReviewBookingDialog: React.FC<Props> = ({
   handleConfirmReview,
   formatTimeRange,
   getResourceName,
+  actionErrorMessage,
 }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -82,6 +84,19 @@ const ReviewBookingDialog: React.FC<Props> = ({
                 {selectedBooking.purpose}
               </p>
             </div>
+          </div>
+        )}
+
+        {actionErrorMessage && (
+          <div
+            className="rounded-lg px-4 py-3 text-sm"
+            style={{
+              background: 'rgba(217,68,68,0.08)',
+              border: '1px solid rgba(217,68,68,0.18)',
+              color: '#B42318',
+            }}
+          >
+            {actionErrorMessage}
           </div>
         )}
 

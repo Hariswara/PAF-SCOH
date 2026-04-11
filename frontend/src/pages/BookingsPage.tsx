@@ -5,8 +5,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import type { ResourceResponse } from '@/types/resource';
-import type { BookingResponse } from '@/types/booking';
+import type {
+  BookingResponse,
+  CreateBookingRequest,
+  UpdateBookingRequest,
+} from '@/types/booking';
 import { bookingApi } from '@/lib/bookingApi';
+import { resourceApi } from '@/lib/resourceApi';
 import BookingSummaryCards from '../components/bookings/BookingSummaryCards';
 import BookingFilters from '../components/bookings/BookingFilters';
 import BookingTable from '../components/bookings/BookingTable';
@@ -34,6 +39,7 @@ const BookingsPage: React.FC = () => {
     currentRole === 'DOMAIN_ADMIN';
 
   const [showForm, setShowForm] = useState(false);
+  const [editingBooking, setEditingBooking] = useState<BookingResponse | null>(null);
 
   const [resourceId, setResourceId] = useState('');
   const [resources, setResources] = useState<ResourceResponse[]>([]);
@@ -69,6 +75,7 @@ const BookingsPage: React.FC = () => {
   const [processingReviewAction, setProcessingReviewAction] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
+  const isEditMode = !!editingBooking;
 
   const selectedResource = useMemo(
     () => resources.find((resource) => resource.id === resourceId),
@@ -124,6 +131,7 @@ const BookingsPage: React.FC = () => {
   };
 
   const resetForm = () => {
+    setEditingBooking(null);
     setResourceId('');
     setBookingDate('');
     setStartTime('');
@@ -132,6 +140,25 @@ const BookingsPage: React.FC = () => {
     setExpectedAttendees('');
     setErrors({});
     setErrorMessage('');
+  };
+
+  const openCreateDialog = () => {
+    resetForm();
+    setShowForm(true);
+  };
+
+  const openEditDialog = (booking: BookingResponse) => {
+    setEditingBooking(booking);
+    setResourceId(booking.resourceId);
+    setBookingDate(booking.bookingDate);
+    setStartTime(booking.startTime.slice(0, 5));
+    setEndTime(booking.endTime.slice(0, 5));
+    setPurpose(booking.purpose);
+    setExpectedAttendees(String(booking.expectedAttendees));
+    setErrors({});
+    setErrorMessage('');
+    setSuccessMessage('');
+    setShowForm(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -149,18 +176,25 @@ const BookingsPage: React.FC = () => {
     setSubmittingBooking(true);
 
     try {
-      await bookingApi.create({
+      const payload: CreateBookingRequest | UpdateBookingRequest = {
         resourceId,
         bookingDate,
         startTime,
         endTime,
         purpose: purpose.trim(),
         expectedAttendees: Number(expectedAttendees),
-      });
+      };
+
+      if (editingBooking) {
+        await bookingApi.update(editingBooking.id, payload);
+        setSuccessMessage(`Booking #${editingBooking.id} updated successfully.`);
+      } else {
+        await bookingApi.create(payload);
+        setSuccessMessage('Booking request submitted successfully.');
+      }
 
       setShowForm(false);
       resetForm();
-      setSuccessMessage('Booking request submitted successfully.');
 
       await loadBookings(
         {
@@ -170,8 +204,11 @@ const BookingsPage: React.FC = () => {
         true
       );
     } catch (error: any) {
+      console.error('Booking save failed:', error?.response?.data || error);
       setErrorMessage(
-        error?.response?.data?.message || 'Failed to create booking.'
+        error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          (editingBooking ? 'Failed to update booking.' : 'Failed to create booking.')
       );
     } finally {
       setSubmittingBooking(false);
@@ -182,55 +219,14 @@ const BookingsPage: React.FC = () => {
     setLoadingResources(true);
 
     try {
-      const mockResources: ResourceResponse[] = [
-        {
-          id: '11111111-1111-1111-1111-111111111111',
-          domainId: 'domain-1',
-          domainName: 'Computing',
-          resourceType: 'LECTURE_HALL',
-          name: 'Lecture Hall A',
-          description: 'Main lecture hall',
-          location: 'Block A - Floor 1',
-          capacity: 120,
-          status: 'ACTIVE',
-          metadata: null,
-          createdBy: 'system',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '22222222-2222-2222-2222-222222222222',
-          domainId: 'domain-1',
-          domainName: 'Computing',
-          resourceType: 'LAB',
-          name: 'Computer Lab 1',
-          description: 'Lab for practical sessions',
-          location: 'Block B - Floor 2',
-          capacity: 40,
-          status: 'ACTIVE',
-          metadata: null,
-          createdBy: 'system',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '33333333-3333-3333-3333-333333333333',
-          domainId: 'domain-2',
-          domainName: 'Business',
-          resourceType: 'MEETING_ROOM',
-          name: 'Meeting Room 2',
-          description: 'Small discussion room',
-          location: 'Admin Building',
-          capacity: 12,
-          status: 'ACTIVE',
-          metadata: null,
-          createdBy: 'system',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ];
-
-      setResources(mockResources);
+      const data = await resourceApi.getAll();
+      const activeResources = data.filter(
+        (resource) => resource.status === 'ACTIVE'
+      );
+      setResources(activeResources);
+    } catch (error: any) {
+      console.error('Load resources failed:', error?.response?.data || error);
+      setResources([]);
     } finally {
       setLoadingResources(false);
     }
@@ -253,8 +249,10 @@ const BookingsPage: React.FC = () => {
 
       setBookings(data);
     } catch (error: any) {
+      console.error('Load bookings failed:', error?.response?.data || error);
       setBookingsError(
         error?.response?.data?.message ||
+          error?.response?.data?.error ||
           (isAdmin
             ? 'Failed to load bookings.'
             : 'Failed to load your bookings.')
@@ -374,6 +372,10 @@ const BookingsPage: React.FC = () => {
     return status === 'PENDING';
   };
 
+  const canEditBooking = (status: string) => {
+    return status === 'PENDING';
+  };
+
   const openCancelDialog = (booking: BookingResponse) => {
     setSelectedBooking(booking);
     setActionErrorMessage('');
@@ -414,8 +416,11 @@ const BookingsPage: React.FC = () => {
         true
       );
     } catch (error: any) {
+      console.error('Cancel booking failed:', error?.response?.data || error);
       setActionErrorMessage(
-        error?.response?.data?.message || 'Failed to cancel booking.'
+        error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          'Failed to cancel booking.'
       );
     } finally {
       setCancellingBooking(false);
@@ -450,8 +455,10 @@ const BookingsPage: React.FC = () => {
         true
       );
     } catch (error: any) {
+      console.error('Review booking failed:', error?.response?.data || error);
       setActionErrorMessage(
         error?.response?.data?.message ||
+          error?.response?.data?.error ||
           `Failed to ${reviewAction.toLowerCase()} booking.`
       );
     } finally {
@@ -536,7 +543,7 @@ const BookingsPage: React.FC = () => {
 
         {!isAdmin && (
           <Button
-            onClick={() => setShowForm(true)}
+            onClick={openCreateDialog}
             className="bg-[#2D7A3A] hover:bg-[#256632] text-white"
           >
             <Plus size={16} />
@@ -609,9 +616,11 @@ const BookingsPage: React.FC = () => {
             formatTimeRange={formatTimeRange}
             canCancelBooking={canCancelBooking}
             canReviewBooking={canReviewBooking}
+            canEditBooking={canEditBooking}
             getStatusBadgeStyles={getStatusBadgeStyles}
             openCancelDialog={openCancelDialog}
             openReviewDialog={openReviewDialog}
+            openEditDialog={openEditDialog}
           />
         </CardContent>
       </Card>
@@ -619,7 +628,12 @@ const BookingsPage: React.FC = () => {
       {!isAdmin && (
         <BookingFormDialog
           open={showForm}
-          onOpenChange={setShowForm}
+          onOpenChange={(open) => {
+            setShowForm(open);
+            if (!open) {
+              resetForm();
+            }
+          }}
           resourceId={resourceId}
           setResourceId={setResourceId}
           resources={resources}
@@ -641,6 +655,7 @@ const BookingsPage: React.FC = () => {
           submittingBooking={submittingBooking}
           selectedResource={selectedResource}
           today={today}
+          isEditMode={isEditMode}
         />
       )}
 
@@ -653,6 +668,7 @@ const BookingsPage: React.FC = () => {
           handleConfirmCancel={handleConfirmCancel}
           formatTimeRange={formatTimeRange}
           getResourceName={getResourceName}
+          actionErrorMessage={actionErrorMessage}
         />
       )}
 
@@ -666,6 +682,7 @@ const BookingsPage: React.FC = () => {
           handleConfirmReview={handleConfirmReview}
           formatTimeRange={formatTimeRange}
           getResourceName={getResourceName}
+          actionErrorMessage={actionErrorMessage}
         />
       )}
     </div>

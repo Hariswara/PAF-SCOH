@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, ClipboardList, XCircle } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Pencil, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,6 +22,7 @@ type Props = {
   formatTimeRange: (start: string, end: string) => string;
   canCancelBooking: (status: string) => boolean;
   canReviewBooking: (status: string) => boolean;
+  canEditBooking: (status: string) => boolean;
   getStatusBadgeStyles: (status: string) => {
     background: string;
     color: string;
@@ -32,6 +33,7 @@ type Props = {
     booking: BookingResponse,
     action: 'APPROVE' | 'REJECT'
   ) => void;
+  openEditDialog: (booking: BookingResponse) => void;
 };
 
 const BookingTable: React.FC<Props> = ({
@@ -44,9 +46,11 @@ const BookingTable: React.FC<Props> = ({
   formatTimeRange,
   canCancelBooking,
   canReviewBooking,
+  canEditBooking,
   getStatusBadgeStyles,
   openCancelDialog,
   openReviewDialog,
+  openEditDialog,
 }) => {
   if (loadingBookings) {
     return (
@@ -142,6 +146,7 @@ const BookingTable: React.FC<Props> = ({
             const badgeStyle = getStatusBadgeStyles(booking.status);
             const canCancel = canCancelBooking(booking.status);
             const canReview = canReviewBooking(booking.status);
+            const canEdit = canEditBooking(booking.status);
 
             return (
               <TableRow key={booking.id}>
@@ -235,16 +240,32 @@ const BookingTable: React.FC<Props> = ({
                         Not available
                       </span>
                     )
-                  ) : canCancel ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => openCancelDialog(booking)}
-                      className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                    >
-                      <XCircle size={14} />
-                      Cancel
-                    </Button>
+                  ) : canEdit || canCancel ? (
+                    <div className="flex justify-end gap-2">
+                      {canEdit && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => openEditDialog(booking)}
+                          className="border-[#D8E0D4] bg-white"
+                        >
+                          <Pencil size={14} />
+                          Edit
+                        </Button>
+                      )}
+
+                      {canCancel && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => openCancelDialog(booking)}
+                          className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                        >
+                          <XCircle size={14} />
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
                   ) : (
                     <span
                       className="text-xs"
