@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,6 +32,7 @@ import {
   Users,
   MapPin,
   Loader2,
+  BarChart2,
 } from 'lucide-react';
 import type {
   CreateResourceRequest,
@@ -70,6 +70,214 @@ const labelCls = 'text-[10px] uppercase tracking-[0.18em] font-semibold';
 const labelStyle: React.CSSProperties = { color: C.muted, fontFamily: 'Albert Sans, sans-serif' };
 const inputCls =
   'h-10 text-[13px] bg-transparent border-0 border-b rounded-none focus-visible:ring-0 focus-visible:border-[#2D7A3A] px-0';
+
+// ── Analytics Modal ───────────────────────────────────────────────────────────
+function AnalyticsModal({
+  resources,
+  onClose,
+  isSuperAdmin,
+  currentUserDomainId,
+}: {
+  resources: ResourceResponse[];
+  onClose: () => void;
+  isSuperAdmin: boolean;
+  currentUserDomainId?: string;
+}) {
+  const backdropRef = useRef<HTMLDivElement>(null);
+
+  const filtered = isSuperAdmin
+    ? resources
+    : resources.filter((r) => r.domainId === currentUserDomainId);
+
+  const domainMap = new Map<string, { name: string; items: ResourceResponse[] }>();
+  filtered.forEach((r) => {
+    const key = r.domainId;
+    if (!domainMap.has(key)) {
+      domainMap.set(key, { name: r.domainName ?? r.domainId, items: [] });
+    }
+    domainMap.get(key)!.items.push(r);
+  });
+
+  const rows = Array.from(domainMap.entries()).map(([domainId, { name, items }]) => {
+    const active = items.filter((r) => r.status === 'ACTIVE').length;
+    const oos = items.filter((r) => r.status === 'OUT_OF_SERVICE').length;
+    const typeCounts = items.reduce<Record<string, number>>((acc, r) => {
+      acc[r.resourceType] = (acc[r.resourceType] ?? 0) + 1;
+      return acc;
+    }, {});
+    const topTypes = Object.entries(typeCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2);
+    return { domainId, name, total: items.length, active, oos, topTypes };
+  });
+
+  const totalAll = filtered.length;
+  const activeAll = filtered.filter((r) => r.status === 'ACTIVE').length;
+  const oosAll = filtered.filter((r) => r.status === 'OUT_OF_SERVICE').length;
+
+  const TYPE_LABELS: Record<string, string> = {
+    LECTURE_HALL: 'Lecture Hall',
+    LAB: 'Lab',
+    MEETING_ROOM: 'Meeting Room',
+    EQUIPMENT: 'Equipment',
+    OTHER: 'Other',
+  };
+
+  return (
+    <div
+      ref={backdropRef}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(26,46,26,0.35)', backdropFilter: 'blur(4px)' }}
+      onClick={(e) => { if (e.target === backdropRef.current) onClose(); }}
+    >
+      <div
+        className="w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden"
+        style={{ background: C.card, border: `1px solid ${C.border}` }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-6 py-4"
+          style={{ borderBottom: `1px solid ${C.border}` }}
+        >
+          <div>
+            <p
+              className="text-[10px] font-semibold uppercase tracking-[0.2em]"
+              style={{ color: C.green, fontFamily: 'Albert Sans, sans-serif' }}
+            >
+              Resource Analytics
+            </p>
+            <h2
+              className="font-serif text-[20px] leading-tight mt-0.5"
+              style={{ color: C.fg }}
+            >
+              Per-domain breakdown
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-md transition-colors"
+            style={{ color: C.muted }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = C.border; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Summary cards */}
+        <div className="grid grid-cols-3 gap-3 px-6 pt-5">
+          {[
+            { label: 'Total resources', value: totalAll, color: C.fg },
+            { label: 'Active', value: activeAll, color: C.green },
+            { label: 'Out of service', value: oosAll, color: C.red },
+          ].map(({ label, value, color }) => (
+            <div
+              key={label}
+              className="rounded-lg p-4"
+              style={{ background: '#F2F5F0' }}
+            >
+              <p
+                className="text-[12px] mb-1"
+                style={{ color: C.muted, fontFamily: 'Albert Sans, sans-serif' }}
+              >
+                {label}
+              </p>
+              <p
+                className="text-[24px] font-semibold"
+                style={{ color, fontFamily: 'Albert Sans, sans-serif' }}
+              >
+                {value}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Table */}
+        <div className="px-6 py-5 max-h-[50vh] overflow-y-auto">
+          {rows.length === 0 ? (
+            <p
+              className="text-[13px] text-center py-8"
+              style={{ color: C.muted, fontFamily: 'Albert Sans, sans-serif' }}
+            >
+              No resources found.
+            </p>
+          ) : (
+            <table className="w-full" style={{ borderCollapse: 'collapse', fontSize: '13px' }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+                  {['Domain', 'Total', 'Active', 'Out of service', 'Top types'].map((h) => (
+                    <th
+                      key={h}
+                      className="pb-3"
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.12em',
+                        color: C.muted,
+                        fontFamily: 'Albert Sans, sans-serif',
+                        textAlign: h === 'Domain' || h === 'Top types' ? 'left' : 'center',
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.domainId} style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <td
+                      className="py-3 font-semibold"
+                      style={{ color: C.fg, fontFamily: 'Albert Sans, sans-serif' }}
+                    >
+                      {row.name}
+                    </td>
+                    <td
+                      className="py-3 text-center"
+                      style={{ color: C.fg, fontFamily: 'Albert Sans, sans-serif' }}
+                    >
+                      {row.total}
+                    </td>
+                    <td
+                      className="py-3 text-center font-semibold"
+                      style={{ color: C.green, fontFamily: 'Albert Sans, sans-serif' }}
+                    >
+                      {row.active}
+                    </td>
+                    <td
+                      className="py-3 text-center"
+                      style={{ color: row.oos > 0 ? C.red : C.muted, fontFamily: 'Albert Sans, sans-serif' }}
+                    >
+                      {row.oos}
+                    </td>
+                    <td className="py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {row.topTypes.map(([type, count]) => (
+                          <span
+                            key={type}
+                            className="text-[11px] px-2 py-0.5 rounded"
+                            style={{
+                              background: C.greenDim,
+                              color: C.green,
+                              fontFamily: 'Albert Sans, sans-serif',
+                            }}
+                          >
+                            {TYPE_LABELS[type] ?? type} × {count}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Status badge ─────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: ResourceStatus }) {
@@ -221,11 +429,11 @@ function ResourceCard({ resource, canManage, onEdit, onDelete, onToggleStatus }:
 
 // ── Create / Edit modal ───────────────────────────────────────────────────────
 interface ResourceFormModalProps {
-  editing: ResourceResponse | null;   // null = create mode
+  editing: ResourceResponse | null;
   domains: { id: string; name: string }[];
   onClose: () => void;
   onSaved: () => void;
-  defaultDomainId?: string;           // pre-fill for domain admins
+  defaultDomainId?: string;
 }
 
 function ResourceFormModal({
@@ -292,7 +500,6 @@ function ResourceFormModal({
     }
   };
 
-  // Close on backdrop click
   const backdropRef = useRef<HTMLDivElement>(null);
 
   return (
@@ -339,7 +546,6 @@ function ResourceFormModal({
         {/* Form */}
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
 
-          {/* Domain (hidden for domain admins who have a fixed domain) */}
           {!defaultDomainId && (
             <div className="space-y-2">
               <Label className={labelCls} style={labelStyle}>Domain *</Label>
@@ -360,7 +566,6 @@ function ResourceFormModal({
             </div>
           )}
 
-          {/* Resource type */}
           <div className="space-y-2">
             <Label className={labelCls} style={labelStyle}>Resource Type *</Label>
             <Select
@@ -379,7 +584,6 @@ function ResourceFormModal({
             </Select>
           </div>
 
-          {/* Name */}
           <div className="space-y-2">
             <Label className={labelCls} style={labelStyle}>Name *</Label>
             <Input
@@ -394,7 +598,6 @@ function ResourceFormModal({
             />
           </div>
 
-          {/* Location */}
           <div className="space-y-2">
             <Label className={labelCls} style={labelStyle}>Location *</Label>
             <Input
@@ -408,7 +611,6 @@ function ResourceFormModal({
             />
           </div>
 
-          {/* Capacity */}
           <div className="space-y-2">
             <Label className={labelCls} style={labelStyle}>
               Capacity{' '}
@@ -425,7 +627,6 @@ function ResourceFormModal({
             />
           </div>
 
-          {/* Description */}
           <div className="space-y-2">
             <Label className={labelCls} style={labelStyle}>Description</Label>
             <Textarea
@@ -437,7 +638,6 @@ function ResourceFormModal({
             />
           </div>
 
-          {/* Error */}
           {error && (
             <div
               className="flex items-center gap-2 p-3 rounded-md text-[12px]"
@@ -448,7 +648,6 @@ function ResourceFormModal({
             </div>
           )}
 
-          {/* Actions */}
           <div
             className="flex items-center justify-between pt-2"
             style={{ borderTop: `1px solid ${C.border}` }}
@@ -563,10 +762,10 @@ const ResourcesPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<ResourceResponse | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResourceResponse | null>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Fetch domains (for super admin filter + form)
   useEffect(() => {
     if (isSuperAdmin) {
       api
@@ -584,7 +783,6 @@ const ResourcesPage: React.FC = () => {
       if (filterType) params.resourceType = filterType;
       if (filterStatus) params.status = filterStatus;
       if (filterDomain) params.domainId = filterDomain;
-      // Domain admins are scoped server-side; no need to pass domainId
 
       const data = await resourceApi.search(params);
       setResources(data);
@@ -595,7 +793,6 @@ const ResourcesPage: React.FC = () => {
     }
   }, [query, filterType, filterStatus, filterDomain]);
 
-  // Debounce query changes, immediate on filter changes
   useEffect(() => {
     if (searchDebounce.current) clearTimeout(searchDebounce.current);
     searchDebounce.current = setTimeout(fetchResources, 300);
@@ -612,7 +809,7 @@ const ResourcesPage: React.FC = () => {
       });
       const newStatus = r.status === 'ACTIVE' ? 'Out of Service' : 'Active';
       toast.success(`Resource marked as ${newStatus}.`);
-      await fetchResources();   // ← now awaited
+      await fetchResources();
     } catch {
       toast.error('Failed to update status.');
     }
@@ -659,16 +856,25 @@ const ResourcesPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Create button — admins only */}
           {canManage && (
-            <button
-              onClick={openCreate}
-              className="shrink-0 h-10 px-5 rounded-md text-[12px] font-semibold uppercase tracking-wider flex items-center gap-2 transition-opacity hover:opacity-90"
-              style={{ background: C.green, color: '#FFFFFF', fontFamily: 'Albert Sans, sans-serif' }}
-            >
-              <Plus size={14} />
-              New Resource
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowAnalytics(true)}
+                className="shrink-0 h-10 px-5 rounded-md text-[12px] font-semibold uppercase tracking-wider flex items-center gap-2 transition-opacity hover:opacity-90"
+                style={{ border: `1px solid ${C.border}`, color: C.muted, fontFamily: 'Albert Sans, sans-serif' }}
+              >
+                <BarChart2 size={14} />
+                Analytics
+              </button>
+              <button
+                onClick={openCreate}
+                className="shrink-0 h-10 px-5 rounded-md text-[12px] font-semibold uppercase tracking-wider flex items-center gap-2 transition-opacity hover:opacity-90"
+                style={{ background: C.green, color: '#FFFFFF', fontFamily: 'Albert Sans, sans-serif' }}
+              >
+                <Plus size={14} />
+                New Resource
+              </button>
+            </div>
           )}
         </div>
         <div
@@ -680,7 +886,6 @@ const ResourcesPage: React.FC = () => {
       {/* Search + filter bar */}
       <div className="mb-6 space-y-3">
         <div className="flex items-center gap-3">
-          {/* Search input */}
           <div className="relative flex-1 max-w-md">
             <Search
               size={14}
@@ -713,7 +918,6 @@ const ResourcesPage: React.FC = () => {
             )}
           </div>
 
-          {/* Toggle filters button */}
           <button
             onClick={() => setShowFilters((v) => !v)}
             className="h-10 px-4 rounded-md text-[12px] font-semibold uppercase tracking-wider flex items-center gap-2 transition-colors"
@@ -737,13 +941,11 @@ const ResourcesPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Filter dropdowns */}
         {showFilters && (
           <div
             className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-lg"
             style={{ background: '#F2F5F0', border: `1px solid ${C.border}` }}
           >
-            {/* Type filter */}
             <div className="space-y-1.5">
               <p className={`${labelCls}`} style={labelStyle}>Type</p>
               <Select value={filterType || 'ALL'} onValueChange={(v) => setFilterType(v === 'ALL' ? '' : v)}>
@@ -759,7 +961,6 @@ const ResourcesPage: React.FC = () => {
               </Select>
             </div>
 
-            {/* Status filter */}
             <div className="space-y-1.5">
               <p className={`${labelCls}`} style={labelStyle}>Status</p>
               <Select value={filterStatus || 'ALL'} onValueChange={(v) => setFilterStatus(v === 'ALL' ? '' : v)}>
@@ -774,7 +975,6 @@ const ResourcesPage: React.FC = () => {
               </Select>
             </div>
 
-            {/* Domain filter — super admin only */}
             {isSuperAdmin && (
               <div className="space-y-1.5">
                 <p className={`${labelCls}`} style={labelStyle}>Domain</p>
@@ -792,7 +992,6 @@ const ResourcesPage: React.FC = () => {
               </div>
             )}
 
-            {/* Clear filters */}
             {hasActiveFilters && (
               <div className="sm:col-span-3 flex justify-end">
                 <button
@@ -876,6 +1075,16 @@ const ResourcesPage: React.FC = () => {
           defaultDomainId={isDomainAdmin ? user?.domainId : undefined}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); fetchResources(); }}
+        />
+      )}
+
+      {/* Analytics modal */}
+      {showAnalytics && (
+        <AnalyticsModal
+          resources={resources}
+          onClose={() => setShowAnalytics(false)}
+          isSuperAdmin={isSuperAdmin}
+          currentUserDomainId={user?.domainId}
         />
       )}
 
