@@ -1,67 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import {
-  ArrowLeft,
-  Plus,
-  AlertCircle,
-  CalendarCheck,
-  ClipboardList,
-  Clock3,
-  MapPin,
-  PlusCircle,
-  RefreshCw,
-  Users,
-  XCircle,
-  CheckCircle2,
-} from 'lucide-react';
-
-import { Badge } from '../components/ui/badge';
-import { Button } from '../components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '../components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../components/ui/dialog';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../components/ui/table';
-import { Textarea } from '../components/ui/textarea';
-import {
-  approveBooking,
-  cancelBooking,
-  createBooking,
-  getBookings,
-  getMyBookings,
-  rejectBooking,
-  type BookingResponse,
-} from '../services/booking.service';
-import { getResources } from '../services/resource.service';
-import type { ResourceResponse } from '../types/resource';
+import { ArrowLeft, Plus } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import type { ResourceResponse } from '@/types/resource';
+import type { BookingResponse } from '@/types/booking';
+import { bookingApi } from '@/lib/bookingApi';
+import BookingSummaryCards from '../components/bookings/BookingSummaryCards';
+import BookingFilters from '../components/bookings/BookingFilters';
+import BookingTable from '../components/bookings/BookingTable';
+import BookingFormDialog from '../components/bookings/BookingFormDialog';
+import CancelBookingDialog from '../components/bookings/CancelBookingDialog';
+import ReviewBookingDialog from '../components/bookings/ReviewBookingDialog';
 
 type FieldErrors = {
   resourceId?: string;
@@ -198,7 +149,7 @@ const BookingsPage: React.FC = () => {
     setSubmittingBooking(true);
 
     try {
-      await createBooking({
+      await bookingApi.create({
         resourceId,
         bookingDate,
         startTime,
@@ -231,11 +182,55 @@ const BookingsPage: React.FC = () => {
     setLoadingResources(true);
 
     try {
-      const data = await getResources();
-      const activeResources = data.filter((resource) => resource.status === 'ACTIVE');
-      setResources(activeResources);
-    } catch (error) {
-      setResources([]);
+      const mockResources: ResourceResponse[] = [
+        {
+          id: '11111111-1111-1111-1111-111111111111',
+          domainId: 'domain-1',
+          domainName: 'Computing',
+          resourceType: 'LECTURE_HALL',
+          name: 'Lecture Hall A',
+          description: 'Main lecture hall',
+          location: 'Block A - Floor 1',
+          capacity: 120,
+          status: 'ACTIVE',
+          metadata: null,
+          createdBy: 'system',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: '22222222-2222-2222-2222-222222222222',
+          domainId: 'domain-1',
+          domainName: 'Computing',
+          resourceType: 'LAB',
+          name: 'Computer Lab 1',
+          description: 'Lab for practical sessions',
+          location: 'Block B - Floor 2',
+          capacity: 40,
+          status: 'ACTIVE',
+          metadata: null,
+          createdBy: 'system',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: '33333333-3333-3333-3333-333333333333',
+          domainId: 'domain-2',
+          domainName: 'Business',
+          resourceType: 'MEETING_ROOM',
+          name: 'Meeting Room 2',
+          description: 'Small discussion room',
+          location: 'Admin Building',
+          capacity: 12,
+          status: 'ACTIVE',
+          metadata: null,
+          createdBy: 'system',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ];
+
+      setResources(mockResources);
     } finally {
       setLoadingResources(false);
     }
@@ -253,8 +248,8 @@ const BookingsPage: React.FC = () => {
 
     try {
       const data = isAdmin
-        ? await getBookings(filters)
-        : await getMyBookings(filters);
+        ? await bookingApi.getAll(filters)
+        : await bookingApi.getMine(filters);
 
       setBookings(data);
     } catch (error: any) {
@@ -281,11 +276,8 @@ const BookingsPage: React.FC = () => {
 
   useEffect(() => {
     if (isLoading) return;
-
-    if (!isAdmin) {
-      void loadResources();
-    }
-  }, [isLoading, isAdmin]);
+    void loadResources();
+  }, [isLoading]);
 
   const handleRefresh = async () => {
     setSuccessMessage('');
@@ -332,6 +324,11 @@ const BookingsPage: React.FC = () => {
     if (!resourceId) return '—';
     if (resourceId.length <= 10) return resourceId;
     return `${resourceId.slice(0, 8)}...`;
+  };
+
+  const getResourceName = (resourceId: string) => {
+    const resource = resources.find((item) => item.id === resourceId);
+    return resource?.name || formatResource(resourceId);
   };
 
   const getStatusBadgeStyles = (status: string) => {
@@ -403,7 +400,7 @@ const BookingsPage: React.FC = () => {
     setSuccessMessage('');
 
     try {
-      await cancelBooking(selectedBooking.id);
+      await bookingApi.cancel(selectedBooking.id);
 
       setShowCancelDialog(false);
       setSelectedBooking(null);
@@ -434,10 +431,10 @@ const BookingsPage: React.FC = () => {
 
     try {
       if (reviewAction === 'APPROVE') {
-        await approveBooking(selectedBooking.id);
+        await bookingApi.approve(selectedBooking.id);
         setSuccessMessage(`Booking #${selectedBooking.id} approved successfully.`);
       } else {
-        await rejectBooking(selectedBooking.id);
+        await bookingApi.reject(selectedBooking.id);
         setSuccessMessage(`Booking #${selectedBooking.id} rejected successfully.`);
       }
 
@@ -576,869 +573,100 @@ const BookingsPage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: 'Total Bookings', value: bookingsSummary.total },
-          { label: 'Pending', value: bookingsSummary.pending },
-          { label: 'Approved', value: bookingsSummary.approved },
-          {
-            label: isAdmin ? 'Rejected' : 'Cancelled',
-            value: isAdmin ? bookingsSummary.rejected : bookingsSummary.cancelled,
-          },
-        ].map((item) => (
-          <Card key={item.label} className="border-[#E2E8DF] shadow-sm bg-white">
-            <CardContent className="py-5">
-              <p
-                className="text-[11px] uppercase tracking-[0.15em] mb-2"
-                style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
-              >
-                {item.label}
-              </p>
-              <p className="font-serif text-[28px]" style={{ color: '#1A2E1A' }}>
-                {item.value}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <BookingSummaryCards
+        isAdmin={isAdmin}
+        total={bookingsSummary.total}
+        pending={bookingsSummary.pending}
+        approved={bookingsSummary.approved}
+        cancelled={bookingsSummary.cancelled}
+        rejected={bookingsSummary.rejected}
+      />
 
       <Card className="border-[#E2E8DF] shadow-sm bg-white mb-6">
         <CardHeader className="gap-4">
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-            <div>
-              <CardTitle
-                className="font-serif text-[24px]"
-                style={{ color: '#1A2E1A' }}
-              >
-                {sectionTitle}
-              </CardTitle>
-              <CardDescription
-                className="text-[13px]"
-                style={{
-                  color: '#6B7B6B',
-                  fontFamily: 'Albert Sans, sans-serif',
-                }}
-              >
-                {sectionDescription}
-              </CardDescription>
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleRefresh}
-              className="border-[#D8E0D4] bg-white"
-              disabled={loadingBookings}
-            >
-              <RefreshCw
-                size={14}
-                className={loadingBookings ? 'animate-spin' : ''}
-              />
-              Refresh
-            </Button>
-          </div>
-
-          <div
-            className="rounded-xl border p-4"
-            style={{ background: '#FBFCFA', borderColor: '#E2E8DF' }}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-[220px_220px_auto] gap-4 items-end">
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full bg-white">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">All Statuses</SelectItem>
-                    <SelectItem value="PENDING">Pending</SelectItem>
-                    <SelectItem value="APPROVED">Approved</SelectItem>
-                    <SelectItem value="REJECTED">Rejected</SelectItem>
-                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Booking Date</Label>
-                <Input
-                  type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="bg-white"
-                />
-              </div>
-
-              <div className="flex md:justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={clearFilters}
-                  disabled={!hasActiveFilters}
-                  className="border-[#D8E0D4] bg-white"
-                >
-                  Clear Filters
-                </Button>
-              </div>
-            </div>
-          </div>
+          <BookingFilters
+            statusFilter={statusFilter}
+            dateFilter={dateFilter}
+            setStatusFilter={setStatusFilter}
+            setDateFilter={setDateFilter}
+            clearFilters={clearFilters}
+            hasActiveFilters={hasActiveFilters}
+            handleRefresh={handleRefresh}
+            loadingBookings={loadingBookings}
+            title={sectionTitle}
+            description={sectionDescription}
+          />
         </CardHeader>
 
         <CardContent>
-          {loadingBookings ? (
-            <div
-              className="rounded-xl border border-dashed px-6 py-14 text-center"
-              style={{ borderColor: '#DCE5D7', background: '#FBFCFA' }}
-            >
-              <p
-                className="text-[14px]"
-                style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
-              >
-                {isAdmin ? 'Loading bookings...' : 'Loading your bookings...'}
-              </p>
-            </div>
-          ) : bookingsError ? (
-            <div
-              className="rounded-lg px-4 py-3 text-sm"
-              style={{
-                background: 'rgba(217,68,68,0.08)',
-                border: '1px solid rgba(217,68,68,0.18)',
-                color: '#B42318',
-                fontFamily: 'Albert Sans, sans-serif',
-              }}
-            >
-              {bookingsError}
-            </div>
-          ) : bookings.length === 0 ? (
-            <div
-              className="rounded-xl border border-dashed px-6 py-14 text-center"
-              style={{ borderColor: '#DCE5D7', background: '#FBFCFA' }}
-            >
-              <div
-                className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"
-                style={{ background: 'rgba(91,140,90,0.08)' }}
-              >
-                <ClipboardList size={22} style={{ color: '#2D7A3A' }} />
-              </div>
-
-              <p
-                className="font-serif text-[24px] mb-2"
-                style={{ color: '#1A2E1A' }}
-              >
-                {hasActiveFilters
-                  ? 'No matching bookings'
-                  : isAdmin
-                    ? 'No bookings found'
-                    : 'No bookings yet'}
-              </p>
-
-              <p
-                className="text-[14px]"
-                style={{ color: '#6B7B6B', fontFamily: 'Albert Sans, sans-serif' }}
-              >
-                {hasActiveFilters
-                  ? 'Try changing or clearing the filters to see more results.'
-                  : isAdmin
-                    ? 'Bookings will appear here when users create requests.'
-                    : 'Your booking history will appear here once you create requests.'}
-              </p>
-            </div>
-          ) : (
-            <div
-              className="rounded-xl border overflow-hidden"
-              style={{ borderColor: '#E2E8DF' }}
-            >
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Booking ID</TableHead>
-                    <TableHead>Resource</TableHead>
-                    <TableHead>Booking Date</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Purpose</TableHead>
-                    <TableHead>Attendees</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-
-                <TableBody>
-                  {bookings.map((booking) => {
-                    const badgeStyle = getStatusBadgeStyles(booking.status);
-                    const canCancel = canCancelBooking(booking.status);
-                    const canReview = canReviewBooking(booking.status);
-
-                    return (
-                      <TableRow key={booking.id}>
-                        <TableCell>
-                          <span
-                            className="px-2 py-1 rounded-md text-xs font-semibold"
-                            style={{
-                              background: 'rgba(91,140,90,0.08)',
-                              color: '#2D7A3A',
-                              fontFamily: 'Albert Sans, sans-serif',
-                            }}
-                          >
-                            #{booking.id}
-                          </span>
-                        </TableCell>
-
-                        <TableCell
-                          className="font-medium"
-                          style={{ color: '#1A2E1A' }}
-                          title={booking.resourceId}
-                        >
-                          {formatResource(booking.resourceId)}
-                        </TableCell>
-
-                        <TableCell style={{ color: '#4D5B4D' }}>
-                          {booking.bookingDate}
-                        </TableCell>
-
-                        <TableCell style={{ color: '#4D5B4D' }}>
-                          {formatTimeRange(booking.startTime, booking.endTime)}
-                        </TableCell>
-
-                        <TableCell
-                          style={{ color: '#4D5B4D', maxWidth: 260 }}
-                          className="truncate"
-                          title={booking.purpose}
-                        >
-                          {booking.purpose}
-                        </TableCell>
-
-                        <TableCell style={{ color: '#4D5B4D' }}>
-                          {booking.expectedAttendees}
-                        </TableCell>
-
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className="rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.12em]"
-                            style={{
-                              background: badgeStyle.background,
-                              color: badgeStyle.color,
-                              borderColor: badgeStyle.borderColor,
-                              fontFamily: 'Albert Sans, sans-serif',
-                            }}
-                          >
-                            {booking.status}
-                          </Badge>
-                        </TableCell>
-
-                        <TableCell className="text-right">
-                          {isAdmin ? (
-                            canReview ? (
-                              <div className="flex justify-end gap-2">
-                                <Button
-                                  type="button"
-                                  onClick={() => openReviewDialog(booking, 'APPROVE')}
-                                  className="bg-[#2D7A3A] hover:bg-[#256632] text-white"
-                                >
-                                  <CheckCircle2 size={14} />
-                                  Approve
-                                </Button>
-
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  onClick={() => openReviewDialog(booking, 'REJECT')}
-                                  className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                                >
-                                  <XCircle size={14} />
-                                  Reject
-                                </Button>
-                              </div>
-                            ) : (
-                              <span
-                                className="text-xs"
-                                style={{
-                                  color: '#9AA79A',
-                                  fontFamily: 'Albert Sans, sans-serif',
-                                }}
-                              >
-                                Not available
-                              </span>
-                            )
-                          ) : canCancel ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => openCancelDialog(booking)}
-                              className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                            >
-                              <XCircle size={14} />
-                              Cancel
-                            </Button>
-                          ) : (
-                            <span
-                              className="text-xs"
-                              style={{
-                                color: '#9AA79A',
-                                fontFamily: 'Albert Sans, sans-serif',
-                              }}
-                            >
-                              Not allowed
-                            </span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <BookingTable
+            bookings={bookings}
+            isAdmin={isAdmin}
+            hasActiveFilters={hasActiveFilters}
+            loadingBookings={loadingBookings}
+            bookingsError={bookingsError}
+            getResourceName={getResourceName}
+            formatTimeRange={formatTimeRange}
+            canCancelBooking={canCancelBooking}
+            canReviewBooking={canReviewBooking}
+            getStatusBadgeStyles={getStatusBadgeStyles}
+            openCancelDialog={openCancelDialog}
+            openReviewDialog={openReviewDialog}
+          />
         </CardContent>
       </Card>
 
       {!isAdmin && (
-        <Dialog open={showForm} onOpenChange={setShowForm}>
-          <DialogContent className="!w-[96vw] !max-w-[1200px] p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-0">
-              <div className="p-6 sm:p-8 lg:border-r border-[#E2E8DF]">
-                <div className="flex items-start justify-between gap-4 mb-6">
-                  <div>
-                    <DialogTitle
-                      className="font-serif text-[24px]"
-                      style={{ color: '#1A2E1A' }}
-                    >
-                      Create Booking Request
-                    </DialogTitle>
-                    <DialogDescription
-                      className="text-[13px] mt-2"
-                      style={{
-                        color: '#6B7B6B',
-                        fontFamily: 'Albert Sans, sans-serif',
-                      }}
-                    >
-                      Complete the form below to submit your booking request.
-                    </DialogDescription>
-                  </div>
-
-                  <Badge
-                    className="rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.15em]"
-                    style={{
-                      background: 'rgba(91,140,90,0.08)',
-                      color: '#2D7A3A',
-                      borderColor: 'rgba(45,122,58,0.15)',
-                      fontFamily: 'Albert Sans, sans-serif',
-                    }}
-                    variant="outline"
-                  >
-                    UI READY
-                  </Badge>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div className="space-y-2">
-                      <Label htmlFor="resourceId">Resource</Label>
-                      <Select value={resourceId} onValueChange={setResourceId}>
-                        <SelectTrigger className="w-full bg-white">
-                          <SelectValue
-                            placeholder={
-                              loadingResources ? 'Loading resources...' : 'Select a resource'
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {resources.length === 0 ? (
-                            <SelectItem value="NO_RESOURCES" disabled>
-                              No active resources available
-                            </SelectItem>
-                          ) : (
-                            resources.map((resource) => (
-                              <SelectItem key={resource.id} value={resource.id}>
-                                {resource.name}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-
-                      {errors.resourceId && (
-                        <p className="text-sm text-red-600">{errors.resourceId}</p>
-                      )}
-
-                      <p
-                        className="text-[12px]"
-                        style={{
-                          color: '#6B7B6B',
-                          fontFamily: 'Albert Sans, sans-serif',
-                        }}
-                      >
-                        Select an active resource for this booking request.
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="bookingDate">Booking Date</Label>
-                      <Input
-                        id="bookingDate"
-                        type="date"
-                        value={bookingDate}
-                        onChange={(e) => setBookingDate(e.target.value)}
-                        className="bg-white"
-                        min={today}
-                      />
-                      {errors.bookingDate && (
-                        <p className="text-sm text-red-600">{errors.bookingDate}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="startTime">Start Time</Label>
-                      <Input
-                        id="startTime"
-                        type="time"
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
-                        className="bg-white"
-                        min="08:00"
-                        max="21:00"
-                      />
-                      {errors.startTime && (
-                        <p className="text-sm text-red-600">{errors.startTime}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="endTime">End Time</Label>
-                      <Input
-                        id="endTime"
-                        type="time"
-                        value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
-                        className="bg-white"
-                        min="08:00"
-                        max="21:00"
-                      />
-                      {errors.endTime && (
-                        <p className="text-sm text-red-600">{errors.endTime}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="purpose">Purpose</Label>
-                      <Textarea
-                        id="purpose"
-                        value={purpose}
-                        onChange={(e) => setPurpose(e.target.value)}
-                        placeholder="Briefly describe why you need this booking"
-                        className="bg-white min-h-[110px]"
-                      />
-                      {errors.purpose && (
-                        <p className="text-sm text-red-600">{errors.purpose}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="expectedAttendees">Expected Attendees</Label>
-                      <Input
-                        id="expectedAttendees"
-                        type="number"
-                        min={1}
-                        value={expectedAttendees}
-                        onChange={(e) => setExpectedAttendees(e.target.value)}
-                        className="bg-white"
-                        placeholder="e.g. 25"
-                      />
-                      {errors.expectedAttendees && (
-                        <p className="text-sm text-red-600">
-                          {errors.expectedAttendees}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div
-                    className="rounded-xl border px-4 py-3"
-                    style={{
-                      background: 'rgba(45,122,58,0.05)',
-                      borderColor: 'rgba(45,122,58,0.12)',
-                    }}
-                  >
-                    <div className="flex items-start gap-3">
-                      <AlertCircle
-                        size={16}
-                        style={{ color: '#2D7A3A', marginTop: 2 }}
-                      />
-                      <div>
-                        <p
-                          className="text-[13px] font-semibold"
-                          style={{
-                            color: '#1A2E1A',
-                            fontFamily: 'Albert Sans, sans-serif',
-                          }}
-                        >
-                          Integration Note
-                        </p>
-                        <p
-                          className="text-[12px] leading-relaxed mt-1"
-                          style={{
-                            color: '#6B7B6B',
-                            fontFamily: 'Albert Sans, sans-serif',
-                          }}
-                        >
-                          Booking requests are validated before submission. Select a resource,
-                          choose a valid time range, and ensure attendee count fits the capacity.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {errorMessage && (
-                    <div
-                      className="rounded-lg px-4 py-3 text-sm"
-                      style={{
-                        background: 'rgba(217,68,68,0.08)',
-                        border: '1px solid rgba(217,68,68,0.18)',
-                        color: '#B42318',
-                        fontFamily: 'Albert Sans, sans-serif',
-                      }}
-                    >
-                      {errorMessage}
-                    </div>
-                  )}
-
-                  <DialogFooter className="pt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={resetForm}
-                      className="border-[#D8E0D4] bg-white"
-                    >
-                      Reset
-                    </Button>
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShowForm(false)}
-                      className="border-[#D8E0D4] bg-white"
-                    >
-                      Cancel
-                    </Button>
-
-                    <Button
-                      type="submit"
-                      disabled={submittingBooking}
-                      className="bg-[#2D7A3A] hover:bg-[#256632] text-white"
-                    >
-                      {submittingBooking ? 'Submitting...' : 'Submit Booking'}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </div>
-
-              <div className="p-6 sm:p-8 bg-white">
-                <h2
-                  className="font-serif text-[22px] mb-2"
-                  style={{ color: '#1A2E1A' }}
-                >
-                  Quick Overview
-                </h2>
-                <p
-                  className="mb-6 text-[13px]"
-                  style={{
-                    color: '#6B7B6B',
-                    fontFamily: 'Albert Sans, sans-serif',
-                  }}
-                >
-                  Review the selected resource details before submitting your booking request.
-                </p>
-
-                <div className="space-y-4">
-                  <div
-                    className="rounded-xl border p-4"
-                    style={{ background: '#FBFCFA', borderColor: '#E2E8DF' }}
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div
-                        className="w-10 h-10 rounded-md flex items-center justify-center"
-                        style={{ background: 'rgba(91,140,90,0.08)' }}
-                      >
-                        <ClipboardList size={18} style={{ color: '#2D7A3A' }} />
-                      </div>
-                      <div>
-                        <p
-                          className="text-[12px] uppercase tracking-[0.16em] font-semibold"
-                          style={{
-                            color: '#6B7B6B',
-                            fontFamily: 'Albert Sans, sans-serif',
-                          }}
-                        >
-                          Selected Resource
-                        </p>
-                        <p
-                          className="font-serif text-[22px]"
-                          style={{ color: '#1A2E1A' }}
-                        >
-                          {selectedResource?.name || 'No resource selected'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                      <div
-                        className="rounded-lg px-3 py-3"
-                        style={{ background: 'white', border: '1px solid #E9EEE6' }}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <MapPin size={14} style={{ color: '#5B8C5A' }} />
-                          <span
-                            style={{
-                              color: '#6B7B6B',
-                              fontFamily: 'Albert Sans, sans-serif',
-                            }}
-                          >
-                            Location
-                          </span>
-                        </div>
-                        <p style={{ color: '#1A2E1A' }}>
-                          {selectedResource?.location || '—'}
-                        </p>
-                      </div>
-
-                      <div
-                        className="rounded-lg px-3 py-3"
-                        style={{ background: 'white', border: '1px solid #E9EEE6' }}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <Users size={14} style={{ color: '#5B8C5A' }} />
-                          <span
-                            style={{
-                              color: '#6B7B6B',
-                              fontFamily: 'Albert Sans, sans-serif',
-                            }}
-                          >
-                            Capacity
-                          </span>
-                        </div>
-                        <p style={{ color: '#1A2E1A' }}>
-                          {selectedResource?.capacity ?? '—'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    className="rounded-xl border p-4"
-                    style={{ background: '#FBFCFA', borderColor: '#E2E8DF' }}
-                  >
-                    <p
-                      className="text-[12px] uppercase tracking-[0.16em] font-semibold mb-3"
-                      style={{
-                        color: '#6B7B6B',
-                        fontFamily: 'Albert Sans, sans-serif',
-                      }}
-                    >
-                      Validation Tips
-                    </p>
-
-                    <div className="space-y-3 text-sm">
-                      {[
-                        {
-                          icon: CalendarCheck,
-                          label: 'Choose a valid booking date',
-                        },
-                        {
-                          icon: Clock3,
-                          label: 'Ensure start time is earlier than end time',
-                        },
-                        {
-                          icon: PlusCircle,
-                          label: 'Expected attendees should be at least 1',
-                        },
-                      ].map((item, index) => (
-                        <div key={index} className="flex items-start gap-3">
-                          <div
-                            className="w-8 h-8 rounded-md flex items-center justify-center shrink-0"
-                            style={{ background: 'rgba(91,140,90,0.08)' }}
-                          >
-                            <item.icon size={15} style={{ color: '#2D7A3A' }} />
-                          </div>
-                          <p
-                            className="leading-relaxed"
-                            style={{
-                              color: '#4D5B4D',
-                              fontFamily: 'Albert Sans, sans-serif',
-                            }}
-                          >
-                            {item.label}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <BookingFormDialog
+          open={showForm}
+          onOpenChange={setShowForm}
+          resourceId={resourceId}
+          setResourceId={setResourceId}
+          resources={resources}
+          loadingResources={loadingResources}
+          bookingDate={bookingDate}
+          setBookingDate={setBookingDate}
+          startTime={startTime}
+          setStartTime={setStartTime}
+          endTime={endTime}
+          setEndTime={setEndTime}
+          purpose={purpose}
+          setPurpose={setPurpose}
+          expectedAttendees={expectedAttendees}
+          setExpectedAttendees={setExpectedAttendees}
+          errors={errors}
+          errorMessage={errorMessage}
+          resetForm={resetForm}
+          handleSubmit={handleSubmit}
+          submittingBooking={submittingBooking}
+          selectedResource={selectedResource}
+          today={today}
+        />
       )}
 
       {!isAdmin && (
-        <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Cancel Booking</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to cancel this booking? This action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-
-            {selectedBooking && (
-              <div
-                className="rounded-xl border p-4 text-sm"
-                style={{ background: '#FBFCFA', borderColor: '#E2E8DF' }}
-              >
-                <div className="space-y-2" style={{ color: '#4D5B4D' }}>
-                  <p>
-                    <span className="font-semibold" style={{ color: '#1A2E1A' }}>
-                      Booking ID:
-                    </span>{' '}
-                    #{selectedBooking.id}
-                  </p>
-                  <p>
-                    <span className="font-semibold" style={{ color: '#1A2E1A' }}>
-                      Resource:
-                    </span>{' '}
-                    {selectedBooking.resourceId}
-                  </p>
-                  <p>
-                    <span className="font-semibold" style={{ color: '#1A2E1A' }}>
-                      Date:
-                    </span>{' '}
-                    {selectedBooking.bookingDate}
-                  </p>
-                  <p>
-                    <span className="font-semibold" style={{ color: '#1A2E1A' }}>
-                      Time:
-                    </span>{' '}
-                    {formatTimeRange(selectedBooking.startTime, selectedBooking.endTime)}
-                  </p>
-                  <p>
-                    <span className="font-semibold" style={{ color: '#1A2E1A' }}>
-                      Status:
-                    </span>{' '}
-                    {selectedBooking.status}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowCancelDialog(false)}
-                disabled={cancellingBooking}
-                className="border-[#D8E0D4] bg-white"
-              >
-                Keep Booking
-              </Button>
-
-              <Button
-                type="button"
-                onClick={handleConfirmCancel}
-                disabled={cancellingBooking}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                {cancellingBooking ? 'Cancelling...' : 'Yes, Cancel Booking'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <CancelBookingDialog
+          open={showCancelDialog}
+          onOpenChange={setShowCancelDialog}
+          selectedBooking={selectedBooking}
+          cancellingBooking={cancellingBooking}
+          handleConfirmCancel={handleConfirmCancel}
+          formatTimeRange={formatTimeRange}
+          getResourceName={getResourceName}
+        />
       )}
 
       {isAdmin && (
-        <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>
-                {reviewAction === 'APPROVE' ? 'Approve Booking' : 'Reject Booking'}
-              </DialogTitle>
-              <DialogDescription>
-                {reviewAction === 'APPROVE'
-                  ? 'Are you sure you want to approve this booking request?'
-                  : 'Are you sure you want to reject this booking request?'}
-              </DialogDescription>
-            </DialogHeader>
-
-            {selectedBooking && (
-              <div
-                className="rounded-xl border p-4 text-sm"
-                style={{ background: '#FBFCFA', borderColor: '#E2E8DF' }}
-              >
-                <div className="space-y-2" style={{ color: '#4D5B4D' }}>
-                  <p>
-                    <span className="font-semibold" style={{ color: '#1A2E1A' }}>
-                      Booking ID:
-                    </span>{' '}
-                    #{selectedBooking.id}
-                  </p>
-                  <p>
-                    <span className="font-semibold" style={{ color: '#1A2E1A' }}>
-                      Resource:
-                    </span>{' '}
-                    {selectedBooking.resourceId}
-                  </p>
-                  <p>
-                    <span className="font-semibold" style={{ color: '#1A2E1A' }}>
-                      Date:
-                    </span>{' '}
-                    {selectedBooking.bookingDate}
-                  </p>
-                  <p>
-                    <span className="font-semibold" style={{ color: '#1A2E1A' }}>
-                      Time:
-                    </span>{' '}
-                    {formatTimeRange(selectedBooking.startTime, selectedBooking.endTime)}
-                  </p>
-                  <p>
-                    <span className="font-semibold" style={{ color: '#1A2E1A' }}>
-                      Purpose:
-                    </span>{' '}
-                    {selectedBooking.purpose}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowReviewDialog(false)}
-                disabled={processingReviewAction}
-                className="border-[#D8E0D4] bg-white"
-              >
-                Cancel
-              </Button>
-
-              <Button
-                type="button"
-                onClick={handleConfirmReview}
-                disabled={processingReviewAction}
-                className={
-                  reviewAction === 'APPROVE'
-                    ? 'bg-[#2D7A3A] hover:bg-[#256632] text-white'
-                    : 'bg-red-600 hover:bg-red-700 text-white'
-                }
-              >
-                {processingReviewAction
-                  ? reviewAction === 'APPROVE'
-                    ? 'Approving...'
-                    : 'Rejecting...'
-                  : reviewAction === 'APPROVE'
-                    ? 'Yes, Approve'
-                    : 'Yes, Reject'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <ReviewBookingDialog
+          open={showReviewDialog}
+          onOpenChange={setShowReviewDialog}
+          selectedBooking={selectedBooking}
+          reviewAction={reviewAction}
+          processingReviewAction={processingReviewAction}
+          handleConfirmReview={handleConfirmReview}
+          formatTimeRange={formatTimeRange}
+          getResourceName={getResourceName}
+        />
       )}
     </div>
   );
