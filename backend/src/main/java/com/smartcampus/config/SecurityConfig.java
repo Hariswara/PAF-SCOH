@@ -63,6 +63,16 @@ public class SecurityConfig {
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/tickets/duplicates/**")
                     .hasAuthority("STATUS_ACTIVE")
 
+                .requestMatchers(org.springframework.http.HttpMethod.POST,   "/api/resources")
+                    .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
+                .requestMatchers(org.springframework.http.HttpMethod.PUT,    "/api/resources/**")
+                    .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
+                .requestMatchers(org.springframework.http.HttpMethod.PATCH,  "/api/resources/**/status")
+                    .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
+                .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/resources/**")
+                    .hasAnyRole("SUPER_ADMIN", "DOMAIN_ADMIN")
+
+
                 .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
                 .requestMatchers("/api/**").hasAuthority("STATUS_ACTIVE")
                 .anyRequest().authenticated()
