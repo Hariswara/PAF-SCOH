@@ -75,4 +75,6 @@ public class BookingController {
     public BookingResponse cancelBooking(@PathVariable Long id) {
         return bookingService.cancelBooking(id);
     }
+
+   
 }
